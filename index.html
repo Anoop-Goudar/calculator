@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calculator</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --panel: #ffffff;
+    --ink: #111827;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --danger: #dc2626;
+    --func: #d97706;
+    --func-soft: #fef3c7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .simple-wrap { width: 100%; max-width: 420px; }
+  .simple-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  }
+  .simple-card h1 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-align: center;
+  }
+  .simple-display {
+    background: #0f172a;
+    color: white;
+    border-radius: 10px;
+    padding: 18px 16px;
+    text-align: right;
+    font-family: "SF Mono", Menlo, monospace;
+    margin-bottom: 14px;
+    min-height: 84px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .simple-display .history {
+    font-size: 13px; color: #94a3b8; min-height: 16px;
+    word-break: break-all; line-height: 1.3;
+  }
+  .simple-display .current {
+    font-size: 24px; font-weight: 600; margin-top: 4px;
+    word-break: break-all; line-height: 1.2;
+  }
+  .simple-display .current.error { color: #fca5a5; font-size: 15px; }
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .keypad button {
+    font: inherit; font-size: 16px; font-weight: 500;
+    border: 1px solid var(--line); background: white;
+    border-radius: 10px; padding: 14px 0; cursor: pointer;
+    transition: background 0.08s, border-color 0.08s, opacity 0.08s;
+  }
+  .keypad button:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+  .keypad button:active:not(:disabled) { background: #e5e7eb; }
+  .keypad button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .keypad button.op {
+    background: var(--accent-soft); color: var(--accent);
+    border-color: #c7d6ff; font-weight: 600;
+  }
+  .keypad button.op:hover:not(:disabled) { background: #c7d6ff; }
+
+  .keypad button.func {
+    background: var(--func-soft); color: var(--func);
+    border-color: #fde68a; font-weight: 600; font-size: 14px;
+  }
+  .keypad button.func:hover:not(:disabled) { background: #fde68a; }
+
+  .keypad button.fn {
+    background: #fef2f2; color: var(--danger); border-color: #fecaca;
+  }
+  .keypad button.fn:hover:not(:disabled) { background: #fee2e2; }
+
+  .keypad button.eq {
+    background: var(--accent); color: white; border-color: var(--accent);
+    grid-column: span 4; padding: 16px 0; font-size: 18px;
+  }
+  .keypad button.eq:hover:not(:disabled) { background: #1d4ed8; }
+
+  /* ===== Convert popover ===== */
+  .scrim {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+  .scrim[hidden] { display: none; }
+  .conv-card {
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; width: 100%; max-width: 360px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  }
+  .conv-card h2 {
+    margin: 0 0 4px; font-size: 15px;
+  }
+  .conv-card .sub { color: var(--muted); margin: 0 0 14px; font-size: 12px; }
+  .conv-row {
+    display: grid; grid-template-columns: 80px 1fr; gap: 8px;
+    align-items: center; margin-bottom: 8px;
+  }
+  .conv-row label { font-size: 12px; color: var(--muted); }
+  .conv-row input, .conv-row select {
+    font: inherit; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: white; width: 100%;
+  }
+  .conv-row input:focus, .conv-row select:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+  }
+  .conv-preview {
+    margin-top: 8px; padding: 8px 10px;
+    background: #f8fafc; border-radius: 6px;
+    font-family: "SF Mono", Menlo, monospace; font-size: 12px;
+    color: var(--ink);
+  }
+  .conv-preview .err { color: var(--danger); }
+  .conv-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 14px;
+  }
+  .conv-actions button {
+    font: inherit; padding: 7px 14px;
+    border: 1px solid var(--line); background: white;
+    border-radius: 6px; cursor: pointer;
+  }
+  .conv-actions button.primary {
+    background: var(--accent); color: white; border-color: var(--accent);
+  }
+  .conv-actions button.primary:disabled {
+    background: #cbd5e1; border-color: #cbd5e1; cursor: not-allowed;
+  }
+  .conv-actions button:hover:not(:disabled) {
+    border-color: var(--accent); color: var(--accent);
+  }
+  .conv-actions button.primary:hover:not(:disabled) {
+    background: #1d4ed8; color: white;
+  }
+</style>
+</head>
+<body>
+
+<div class="simple-wrap">
+  <div class="simple-card">
+    <h1>Calculator</h1>
+    <div class="simple-display">
+      <div class="history" id="history">&nbsp;</div>
+      <div class="current" id="current">0</div>
+    </div>
+    <div class="keypad" id="keypad"></div>
+  </div>
+</div>
+
+<!-- Convert popover -->
+<div class="scrim" id="conv-scrim" hidden>
+  <div class="conv-card">
+    <h2>Convert (FX)</h2>
+    <p class="sub">Convert an amount from one currency to another, rounded to the given scale.</p>
+
+    <div class="conv-row">
+      <label>Amount</label>
+      <input type="number" step="any" id="conv-amount" />
+    </div>
+    <div class="conv-row">
+      <label>Scale</label>
+      <select id="conv-scale">
+        <option value="0">0 decimals</option>
+        <option value="2" selected>2 decimals</option>
+        <option value="4">4 decimals</option>
+        <option value="6">6 decimals</option>
+      </select>
+    </div>
+    <div class="conv-row">
+      <label>From</label>
+      <select id="conv-from"></select>
+    </div>
+    <div class="conv-row">
+      <label>To</label>
+      <select id="conv-to"></select>
+    </div>
+
+    <div class="conv-preview" id="conv-preview">&nbsp;</div>
+
+    <div class="conv-actions">
+      <button id="conv-cancel">Cancel</button>
+      <button id="conv-insert" class="primary">Insert</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+ * Button-driven calculator that mirrors the spec's operator rules.
+ *
+ * Supported operators:
+ *   +  −  ×  ÷                  binary, BigDecimal-semantics (JS number here)
+ *   min(a, b)                   strict binary
+ *   max(a, b)                   strict binary
+ *   round(value, scale)         strict binary
+ *   convert(...) 8 operands     amount, scale, "from", fromCcy,
+ *                               "to", toCcy, "rate", rateType
+ *   ( )                         parentheses for order of operations
+ *
+ * Free-text input is disabled — every keystroke goes through `press()`,
+ * every button is auto-disabled when it would produce an invalid state,
+ * and `convert` opens a constrained dropdown popover (no typing of
+ * currency codes or rate types).
+ * ===================================================================== */
+
+const FUNCS = new Set(["min", "max", "round"]); /* binary-arity functions */
+
+/* Demo FX rates (USD-per-1-unit equivalent table; cross-pairs computed). */
+const CURRENCIES = ["USD", "EUR", "GBP", "INR", "JPY", "AUD"];
+const FX = {
+  USD: { INR: 84.20, EUR: 0.93,   GBP: 0.79,   JPY: 156.0, AUD: 1.52 },
+  EUR: { INR: 90.55, USD: 1.075,  GBP: 0.85,   JPY: 167.7, AUD: 1.63 },
+  GBP: { INR: 106.6, USD: 1.265,  EUR: 1.176,  JPY: 197.5, AUD: 1.92 },
+  INR: { USD: 0.01188, EUR: 0.01104, GBP: 0.00938, JPY: 1.853, AUD: 0.01806 },
+  JPY: { INR: 0.540, USD: 0.00641, EUR: 0.00597, GBP: 0.00506, AUD: 0.00974 },
+  AUD: { INR: 55.39, USD: 0.658,  EUR: 0.614,  GBP: 0.521,  JPY: 102.65 }
+};
+function fxRate(from, to) {
+  if (from === to) return 1;
+  const base = FX[from]?.[to];
+  if (base == null) throw new Error(`No rate ${from}→${to}`);
+  return base;
+}
+
+const KEYS = [
+  { label: "min",  type: "func", act: "func", name: "min" },
+  { label: "max",  type: "func", act: "func", name: "max" },
+  { label: "round",type: "func", act: "func", name: "round" },
+  { label: "conv", type: "func", act: "convert" },
+
+  { label: "C",  type: "fn", act: "clear" },
+  { label: "⌫", type: "fn", act: "back" },
+  { label: "(",  type: "op", act: "lparen" },
+  { label: ")",  type: "op", act: "rparen" },
+
+  { label: "7", type: "num" }, { label: "8", type: "num" }, { label: "9", type: "num" },
+  { label: "÷", type: "op", act: "op", op: "÷" },
+
+  { label: "4", type: "num" }, { label: "5", type: "num" }, { label: "6", type: "num" },
+  { label: "×", type: "op", act: "op", op: "×" },
+
+  { label: "1", type: "num" }, { label: "2", type: "num" }, { label: "3", type: "num" },
+  { label: "−", type: "op", act: "op", op: "−" },
+
+  { label: "0", type: "num" }, { label: ".", type: "num" },
+  { label: ",", type: "op", act: "comma" },
+  { label: "+", type: "op", act: "op", op: "+" },
+
+  { label: "=", type: "eq", act: "eq" }
+];
+
+const $ = sel => document.querySelector(sel);
+const el = (tag, props = {}, ...children) => {
+  const e = document.createElement(tag);
+  Object.entries(props).forEach(([k, v]) => {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  });
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return e;
+};
+
+const state = {
+  tokens: [],          /* string tokens OR compound objects (convert) */
+  justEvaluated: false,
+  buttons: {}
+};
+
+/* ---- token helpers ------------------------------------------------- */
+
+const last       = () => state.tokens[state.tokens.length - 1];
+const isNumber   = t => typeof t === "string" && /^\d+(\.\d*)?$/.test(t);
+const isBinaryOp = t => t === "+" || t === "−" || t === "×" || t === "÷";
+const isCompound = t => t != null && typeof t === "object";
+const endsPrimary = t => isNumber(t) || isCompound(t) || t === ")";
+
+/* Open-paren stack: array of { name, commas } where name is the function
+ * name (or null for a plain "("). Rebuilt from tokens each call. */
+function openStack(tokens = state.tokens) {
+  const stack = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "(") {
+      const prev = tokens[i - 1];
+      const name = FUNCS.has(prev) ? prev : null;
+      stack.push({ name, commas: 0 });
+    } else if (t === ")") {
+      stack.pop();
+    } else if (t === ",") {
+      if (stack.length) stack[stack.length - 1].commas++;
+    }
+  }
+  return stack;
+}
+
+function expectingPrimary() {
+  const t = last();
+  return t == null || isBinaryOp(t) || t === "(" || t === ",";
+}
+
+/* All our binary-arity funcs take exactly one comma. */
+function maxCommas(funcName) {
+  if (funcName === "min" || funcName === "max" || funcName === "round") return 1;
+  return 0; /* plain paren: no commas */
+}
+
+/* ---- render -------------------------------------------------------- */
+
+function renderKeypad() {
+  const pad = $("#keypad");
+  KEYS.forEach(k => {
+    const b = el("button", {
+      class: [k.type, k.act === "eq" ? "eq" : ""].join(" ").trim(),
+      onclick: () => press(k)
+    }, k.label);
+    state.buttons[k.label] = b;
+    pad.appendChild(b);
+  });
+}
+
+function tokenToText(t) {
+  if (isCompound(t) && t.kind === "convert") {
+    return `convert(${t.amount}, ${t.scale}, ${t.fromCcy}→${t.toCcy})`;
+  }
+  return t;
+}
+
+function renderTokens(tokens) {
+  /* fuse `<func> (` for nicer display */
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (typeof t === "string" && FUNCS.has(t) && tokens[i + 1] === "(") {
+      out.push(t + "(");
+      i++;
+    } else {
+      out.push(tokenToText(t));
+    }
+  }
+  return out.join(" ");
+}
+
+function redraw() {
+  const cur = $("#current");
+  cur.classList.remove("error");
+  cur.textContent = state.tokens.length === 0 ? "0" : renderTokens(state.tokens);
+  updateDisabled();
+}
+
+function updateDisabled() {
+  const t = last();
+  const expect = expectingPrimary();
+  const stack = openStack();
+  const top = stack[stack.length - 1];
+  const insideFunc = top && top.name;
+  const endsExpr = endsPrimary(t);
+
+  /* digits */
+  const numOK = expect || isNumber(t);
+  ["0","1","2","3","4","5","6","7","8","9"].forEach(n => disable(n, !numOK));
+  const dotOK = (isNumber(t) && !t.includes(".")) || expect;
+  disable(".", !dotOK);
+
+  /* binary + × ÷ */
+  const binOK = endsExpr;
+  ["+", "×", "÷"].forEach(o => disable(o, !binOK));
+  /* − is also valid in primary position (unary) */
+  disable("−", !(binOK || expect));
+
+  /* "(" — primary or implicit × */
+  disable("(", !(expect || endsExpr));
+
+  /* ")" — needs an open and a complete expression inside.
+     For binary funcs, also requires the right comma count. */
+  let rparenOK = stack.length > 0 && endsExpr;
+  if (insideFunc) rparenOK = rparenOK && (top.commas === maxCommas(top.name));
+  disable(")", !rparenOK);
+
+  /* "," — inside a function call, after a complete expression,
+     and not exceeding the function's comma cap */
+  let commaOK = insideFunc && endsExpr && (top.commas < maxCommas(top.name));
+  disable(",", !commaOK);
+
+  /* function keys + conv */
+  const funcOK = expect || endsExpr;
+  ["min", "max", "round", "conv"].forEach(f => disable(f, !funcOK));
+
+  /* equals — only when the expression is complete */
+  const hasNumOrCompound = state.tokens.some(x => isNumber(x) || isCompound(x));
+  disable("=", !(hasNumOrCompound && endsExpr && stack.length === 0));
+
+  disable("⌫", state.tokens.length === 0);
+  disable("C",  state.tokens.length === 0);
+}
+
+function disable(label, on) {
+  const b = state.buttons[label];
+  if (b) b.disabled = !!on;
+}
+
+/* ---- press dispatcher --------------------------------------------- */
+
+function press(k) {
+  if (state.justEvaluated &&
+      (k.type === "num" || k.act === "lparen" ||
+       k.act === "func" || k.act === "convert")) {
+    state.tokens = [];
+  }
+  state.justEvaluated = false;
+
+  if (k.type === "num")    return pressNum(k.label);
+  if (k.act === "op")      return pressOp(k.op);
+  if (k.act === "lparen")  return pressLParen();
+  if (k.act === "rparen")  return pressRParen();
+  if (k.act === "comma")   return pressComma();
+  if (k.act === "func")    return pressFunc(k.name);
+  if (k.act === "convert") return openConvPopover();
+  if (k.act === "back")    return pressBack();
+  if (k.act === "clear")   return pressClear();
+  if (k.act === "eq")      return pressEq();
+}
+
+function pressNum(ch) {
+  const t = last();
+  if (isNumber(t)) {
+    if (ch === "." && t.includes(".")) return;
+    if (t === "0" && ch !== ".") {
+      state.tokens[state.tokens.length - 1] = ch;
+      return redraw();
+    }
+    state.tokens[state.tokens.length - 1] = t + ch;
+  } else if (expectingPrimary()) {
+    state.tokens.push(ch === "." ? "0." : ch);
+  } else if (endsPrimary(t)) {
+    /* implicit × when typing a digit right after ")" or a compound */
+    state.tokens.push("×", ch === "." ? "0." : ch);
+  } else {
+    return;
+  }
+  redraw();
+}
+
+function pressOp(op) {
+  const t = last();
+  if (t == null) { if (op === "−") { state.tokens.push(op); redraw(); } return; }
+  if (isBinaryOp(t)) {
+    if (op === "−" && (t === "×" || t === "÷")) state.tokens.push(op);
+    else state.tokens[state.tokens.length - 1] = op;
+    return redraw();
+  }
+  if (t === "(" || t === ",") {
+    if (op === "−") { state.tokens.push(op); redraw(); }
+    return;
+  }
+  if (endsPrimary(t)) { state.tokens.push(op); redraw(); }
+}
+
+function pressLParen() {
+  const t = last();
+  if (endsPrimary(t)) state.tokens.push("×"); /* implicit × */
+  state.tokens.push("(");
+  redraw();
+}
+
+function pressRParen() {
+  const stack = openStack();
+  if (stack.length === 0) return;
+  const top = stack[stack.length - 1];
+  if (!endsPrimary(last())) return;
+  if (top.name && top.commas !== maxCommas(top.name)) return;
+  state.tokens.push(")");
+  redraw();
+}
+
+function pressComma() {
+  const stack = openStack();
+  if (stack.length === 0) return;
+  const top = stack[stack.length - 1];
+  if (!top.name) return; /* commas only inside function calls */
+  if (top.commas >= maxCommas(top.name)) return;
+  if (!endsPrimary(last())) return;
+  state.tokens.push(",");
+  redraw();
+}
+
+function pressFunc(name) {
+  const t = last();
+  if (endsPrimary(t)) state.tokens.push("×"); /* implicit × */
+  state.tokens.push(name, "(");
+  redraw();
+}
+
+function pressBack() {
+  if (state.tokens.length === 0) return;
+  const t = last();
+  if (isNumber(t) && t.length > 1) {
+    state.tokens[state.tokens.length - 1] = t.slice(0, -1);
+  } else {
+    state.tokens.pop();
+    /* removing "(" of a function call also removes the function name */
+    if (t === "(" && FUNCS.has(last())) state.tokens.pop();
+  }
+  redraw();
+}
+
+function pressClear() {
+  state.tokens = [];
+  $("#history").innerHTML = "&nbsp;";
+  redraw();
+}
+
+function pressEq() {
+  if (state.tokens.length === 0) return;
+  const display = renderTokens(state.tokens);
+  try {
+    const result = evaluate(state.tokens);
+    const shown = Number.isFinite(result)
+      ? Number(result.toPrecision(12)).toString()
+      : String(result);
+    $("#history").textContent = display + " =";
+    state.tokens = [shown];
+    state.justEvaluated = true;
+    const cur = $("#current");
+    cur.classList.remove("error");
+    cur.textContent = shown;
+    updateDisabled();
+  } catch (e) {
+    $("#history").textContent = display + " =";
+    const cur = $("#current");
+    cur.classList.add("error");
+    cur.textContent = e.message;
+    state.justEvaluated = true;
+    updateDisabled();
+  }
+}
+
+/* ---- evaluator ---------------------------------------------------- */
+
+function evaluate(rawTokens) {
+  const ts = rawTokens.slice();
+  if (ts.length === 0) throw new Error("Empty");
+
+  const tail = ts[ts.length - 1];
+  if (isBinaryOp(tail)) throw new Error("Missing operand after " + tail);
+  if (tail === "(")     throw new Error("Empty (");
+  if (tail === ",")     throw new Error("Missing argument after ,");
+  if (typeof tail === "string" && FUNCS.has(tail)) throw new Error("Missing ( after " + tail);
+
+  const opens  = ts.filter(t => t === "(").length;
+  const closes = ts.filter(t => t === ")").length;
+  if (opens > closes) throw new Error("Missing )");
+  if (closes > opens) throw new Error("Extra )");
+
+  let pos = 0;
+  const peek = () => ts[pos];
+  const next = () => ts[pos++];
+
+  function parseExpr() {
+    let l = parseTerm();
+    while (peek() === "+" || peek() === "−") {
+      const op = next();
+      const r = parseTerm();
+      l = { op, l, r };
+    }
+    return l;
+  }
+  function parseTerm() {
+    let l = parsePrimary();
+    while (peek() === "×" || peek() === "÷") {
+      const op = next();
+      const r = parsePrimary();
+      l = { op, l, r };
+    }
+    return l;
+  }
+  function parsePrimary() {
+    const t = peek();
+    if (t === "−") { next(); return { op: "neg", a: parsePrimary() }; }
+    if (t === "(") {
+      next();
+      const e = parseExpr();
+      if (peek() !== ")") throw new Error("Bad expression");
+      next();
+      return e;
+    }
+    if (typeof t === "string" && FUNCS.has(t)) {
+      const name = next();
+      if (peek() !== "(") throw new Error("Bad " + name);
+      next();
+      const args = [parseExpr()];
+      while (peek() === ",") { next(); args.push(parseExpr()); }
+      if (peek() !== ")") throw new Error("Bad " + name);
+      next();
+      if (args.length !== 2) throw new Error(name + " needs exactly 2 args");
+      return { func: name, args };
+    }
+    if (isCompound(t) && t.kind === "convert") { next(); return { conv: t }; }
+    if (isNumber(t)) { next(); return { num: Number(t) }; }
+    throw new Error("Bad expression");
+  }
+
+  const ast = parseExpr();
+  if (pos !== ts.length) throw new Error("Bad expression");
+  return run(ast);
+}
+
+function run(n) {
+  if ("num" in n) return n.num;
+  if ("conv" in n) return runConvert(n.conv);
+  if (n.op === "neg") return -run(n.a);
+  if (n.op) {
+    const a = run(n.l), b = run(n.r);
+    switch (n.op) {
+      case "+": return a + b;
+      case "−": return a - b;
+      case "×": return a * b;
+      case "÷":
+        if (b === 0) throw new Error("÷ by zero");
+        return a / b;
+    }
+  }
+  if (n.func) {
+    const [a, b] = n.args.map(run);
+    switch (n.func) {
+      case "min": return Math.min(a, b);
+      case "max": return Math.max(a, b);
+      case "round": {
+        const f = Math.pow(10, Math.trunc(b));
+        return Math.round(a * f) / f;
+      }
+    }
+  }
+  throw new Error("Bad AST");
+}
+
+function runConvert(c) {
+  const rate = fxRate(c.fromCcy, c.toCcy);
+  const raw  = Number(c.amount) * rate;
+  const f    = Math.pow(10, Math.trunc(c.scale));
+  return Math.round(raw * f) / f;
+}
+
+/* ---- Convert popover --------------------------------------------- */
+
+function populateCcyDropdowns() {
+  const from = $("#conv-from"), to = $("#conv-to");
+  CURRENCIES.forEach(c => {
+    from.appendChild(el("option", { value: c }, c));
+    to.appendChild(el("option", { value: c }, c));
+  });
+  from.value = "USD";
+  to.value   = "INR";
+}
+
+function openConvPopover() {
+  $("#conv-amount").value = "";
+  $("#conv-scale").value  = "2";
+  $("#conv-from").value   = "USD";
+  $("#conv-to").value     = "INR";
+  updateConvPreview();
+  $("#conv-scrim").hidden = false;
+  $("#conv-amount").focus();
+}
+
+function closeConvPopover() { $("#conv-scrim").hidden = true; }
+
+function readConvForm() {
+  const amount = $("#conv-amount").value;
+  if (amount === "" || isNaN(Number(amount))) return null;
+  return {
+    kind: "convert",
+    amount: Number(amount),
+    scale: Number($("#conv-scale").value),
+    fromCcy: $("#conv-from").value,
+    toCcy: $("#conv-to").value
+  };
+}
+
+function updateConvPreview() {
+  const c = readConvForm();
+  const p = $("#conv-preview");
+  if (!c) { p.textContent = "Enter an amount to preview"; return; }
+  try {
+    const r = runConvert(c);
+    p.innerHTML = `${c.amount} ${c.fromCcy} → <strong>${r}</strong> ${c.toCcy} ` +
+                  `(scale ${c.scale})`;
+  } catch (e) {
+    p.innerHTML = `<span class="err">${e.message}</span>`;
+  }
+}
+
+function insertConvert() {
+  const c = readConvForm();
+  if (!c) return;
+  /* implicit × when inserting after a primary-ending token */
+  if (endsPrimary(last())) state.tokens.push("×");
+  state.tokens.push(c);
+  closeConvPopover();
+  redraw();
+}
+
+/* Wire the popover */
+populateCcyDropdowns();
+["conv-amount","conv-scale","conv-from","conv-to"]
+  .forEach(id => $("#" + id).addEventListener("input", updateConvPreview));
+$("#conv-cancel").addEventListener("click", closeConvPopover);
+$("#conv-insert").addEventListener("click", insertConvert);
+$("#conv-scrim").addEventListener("click", e => {
+  if (e.target.id === "conv-scrim") closeConvPopover();
+});
+
+renderKeypad();
+redraw();
+</script>
+</body>
+</html>
