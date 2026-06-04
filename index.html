@@ -353,6 +353,95 @@
     line-height: 1.55;
   }
 
+  /* ===== Saved formulas table ===== */
+  .saved-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .saved-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+    background: #fafbfd;
+  }
+  .saved-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: middle;
+  }
+  .saved-table tr:last-child td { border-bottom: none; }
+  .saved-name { font-weight: 600; }
+  .saved-text {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: var(--muted);
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .saved-time {
+    color: var(--muted); font-size: 12px;
+    white-space: nowrap;
+  }
+  .saved-actions {
+    display: flex; gap: 6px; justify-content: flex-end;
+  }
+  .saved-actions button {
+    font: inherit; font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+  }
+  .saved-actions button:hover {
+    border-color: var(--accent); color: var(--accent);
+  }
+  .saved-actions button.danger { color: var(--err); }
+  .saved-actions button.danger:hover {
+    border-color: var(--err); background: #fef2f2; color: var(--err);
+  }
+  .empty-table {
+    padding: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+  }
+  .card-actions button.save-btn {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .card-actions button.save-btn:hover {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* Save modal (reuses .scrim) */
+  .save-modal-card { max-width: 380px; }
+  .save-modal-card label {
+    display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;
+  }
+  .save-modal-card input {
+    font: inherit; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .save-modal-card input:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+  }
+  .save-modal-card .err {
+    color: var(--err); font-size: 12px; margin-top: 8px;
+  }
+
   .hint-card ul { margin: 8px 0 0; padding-left: 18px; }
   .hint-card li { color: var(--muted); margin: 4px 0; }
   .hint-card code {
@@ -540,6 +629,7 @@
         <select id="preset-select">
           <option value="">Load example…</option>
         </select>
+        <button id="save-btn" class="save-btn">Save…</button>
         <button id="clear-btn">Clear</button>
       </div>
     </div>
@@ -591,6 +681,21 @@
     <pre class="json" id="output-json">{}</pre>
   </section>
 
+  <section class="card">
+    <div class="card-head"><h2>Saved formulas</h2></div>
+    <table class="saved-table">
+      <thead>
+        <tr>
+          <th style="width: 22%">Name</th>
+          <th>Text</th>
+          <th style="width: 110px">Saved</th>
+          <th style="width: 140px"></th>
+        </tr>
+      </thead>
+      <tbody id="saved-tbody"></tbody>
+    </table>
+  </section>
+
   <section class="card hint-card">
     <div class="card-head"><h2>How it works</h2></div>
     <ul>
@@ -603,6 +708,24 @@
     </ul>
   </section>
 </main>
+
+<!-- ===== Save modal ===== -->
+<div class="scrim" id="save-scrim" hidden>
+  <div class="popover-card save-modal-card">
+    <div class="popover-header">
+      <h3>Save formula</h3>
+    </div>
+    <div class="screen">
+      <label for="save-name">Name</label>
+      <input id="save-name" type="text" placeholder="e.g. Simple interest (3y, ₹)" />
+      <div class="err" id="save-err" hidden></div>
+    </div>
+    <div class="popover-footer">
+      <button id="save-cancel">Cancel</button>
+      <button id="save-confirm" class="primary">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== Item Details popover ===== -->
 <div class="scrim" id="popover" hidden>
@@ -1531,6 +1654,172 @@ $("#clear-btn").addEventListener("click", () => {
   renderAll();
 });
 
+/* =====================================================================
+ * Saved formulas (localStorage)
+ * ===================================================================== */
+
+const SAVED_KEY = "calc_builder.saved_formulas_v1";
+
+state.saved = (() => {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+})();
+
+function persistSaved() {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); }
+  catch { /* ignore quota errors */ }
+}
+
+function openSaveModal() {
+  /* Refuse to save an empty or invalid formula. */
+  if (state.items.length === 0) {
+    $("#save-err").textContent = "Formula is empty.";
+    $("#save-err").hidden = false;
+  } else {
+    try {
+      parseItems(state.items);
+      $("#save-err").hidden = true;
+    } catch (e) {
+      $("#save-err").textContent = "Cannot save invalid formula: " + e.message;
+      $("#save-err").hidden = false;
+    }
+  }
+  $("#save-name").value = "";
+  $("#save-scrim").hidden = false;
+  setTimeout(() => $("#save-name").focus(), 0);
+}
+
+function closeSaveModal() {
+  $("#save-scrim").hidden = true;
+}
+
+function saveCurrentFormula() {
+  const name = $("#save-name").value.trim();
+  if (!name) {
+    $("#save-err").textContent = "Please give the formula a name.";
+    $("#save-err").hidden = false;
+    return;
+  }
+  if (state.items.length === 0) return;
+  try {
+    const ast  = parseItems(state.items);
+    const json = toJSON(ast);
+    const entry = {
+      id: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+      name,
+      items: state.items.map(cloneItem),
+      json,
+      text: toText(state.items),
+      savedAt: new Date().toISOString()
+    };
+    state.saved.unshift(entry);
+    persistSaved();
+    closeSaveModal();
+    renderSavedTable();
+  } catch (e) {
+    $("#save-err").textContent = e.message;
+    $("#save-err").hidden = false;
+  }
+}
+
+function loadSavedFormula(id) {
+  const entry = state.saved.find(e => e.id === id);
+  if (!entry) return;
+  state.items = entry.items.map(cloneItem);
+  state.cursor = { arrPath: [], pos: state.items.length };
+  renderAll();
+  /* scroll to top of formula card */
+  document.querySelector(".pill-row")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function deleteSavedFormula(id) {
+  const entry = state.saved.find(e => e.id === id);
+  if (!entry) return;
+  if (!confirm(`Delete "${entry.name}"?`)) return;
+  state.saved = state.saved.filter(e => e.id !== id);
+  persistSaved();
+  renderSavedTable();
+}
+
+function relativeTime(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)    return "just now";
+  if (m < 60)   return m + "m ago";
+  const h = Math.floor(m / 60);
+  if (h < 24)   return h + "h ago";
+  const d = Math.floor(h / 24);
+  if (d < 30)   return d + "d ago";
+  return new Date(iso).toLocaleDateString();
+}
+
+function renderSavedTable() {
+  const tbody = $("#saved-tbody");
+  tbody.innerHTML = "";
+
+  if (state.saved.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.className = "empty-table";
+    td.textContent = "No saved formulas yet. Build one above and click Save…";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  state.saved.forEach(entry => {
+    const tr = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    nameTd.className = "saved-name";
+    nameTd.textContent = entry.name;
+    tr.appendChild(nameTd);
+
+    const textTd = document.createElement("td");
+    textTd.className = "saved-text";
+    textTd.title = entry.text;
+    textTd.textContent = entry.text;
+    tr.appendChild(textTd);
+
+    const timeTd = document.createElement("td");
+    timeTd.className = "saved-time";
+    timeTd.title = new Date(entry.savedAt).toLocaleString();
+    timeTd.textContent = relativeTime(entry.savedAt);
+    tr.appendChild(timeTd);
+
+    const actTd = document.createElement("td");
+    actTd.className = "saved-actions";
+    const loadBtn = document.createElement("button");
+    loadBtn.textContent = "Load";
+    loadBtn.addEventListener("click", () => loadSavedFormula(entry.id));
+    actTd.appendChild(loadBtn);
+    const delBtn = document.createElement("button");
+    delBtn.className = "danger";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteSavedFormula(entry.id));
+    actTd.appendChild(delBtn);
+    tr.appendChild(actTd);
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* Wire save modal */
+$("#save-btn").addEventListener("click", openSaveModal);
+$("#save-cancel").addEventListener("click", closeSaveModal);
+$("#save-confirm").addEventListener("click", saveCurrentFormula);
+$("#save-name").addEventListener("keydown", e => {
+  if (e.key === "Enter")  { e.preventDefault(); saveCurrentFormula(); }
+  if (e.key === "Escape") { e.preventDefault(); closeSaveModal(); }
+});
+$("#save-scrim").addEventListener("click", e => {
+  if (e.target.id === "save-scrim") closeSaveModal();
+});
+
 /* ---- Top level --------------------------------------------------- */
 
 function renderAll() {
@@ -1540,6 +1829,7 @@ function renderAll() {
 }
 
 renderAll();
+renderSavedTable();
 </script>
 </body>
 </html>
