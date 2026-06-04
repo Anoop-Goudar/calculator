@@ -3,19 +3,37 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Calculator</title>
+<title>Calculation Builder</title>
 <style>
   :root {
-    --bg: #f5f7fb;
+    --bg: #f5f6fa;
     --panel: #ffffff;
-    --ink: #111827;
+    --ink: #1a2330;
     --muted: #6b7280;
-    --line: #e5e7eb;
-    --accent: #2563eb;
-    --accent-soft: #dbeafe;
-    --danger: #dc2626;
-    --func: #d97706;
-    --func-soft: #fef3c7;
+    --line: #d8dde6;
+    --line-soft: #eaecf2;
+
+    --accent: #0070f3;
+    --accent-soft: #e8f1ff;
+    --accent-deep: #0058c4;
+
+    --pill-var-bg: #e8f1ff;
+    --pill-var-ink: #0058c4;
+    --pill-func-bg: #f0e8ff;
+    --pill-func-ink: #5a2bb8;
+    --pill-op-ink: #b03892;
+    --pill-paren-ink: #b03892;
+    --pill-lit-bg: #f3f4f6;
+    --pill-lit-ink: #374151;
+
+    --slot-bg: #fff7e6;
+    --slot-border: #f59e0b;
+    --slot-ink: #b45309;
+
+    --ok: #047857;
+    --ok-soft: #ecfdf5;
+    --err: #b91c1c;
+    --err-soft: #fef2f2;
   }
   * { box-sizing: border-box; }
   body {
@@ -23,732 +41,1505 @@
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--ink);
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 32px 16px;
   }
 
-  .simple-wrap { width: 100%; max-width: 420px; }
-  .simple-card {
+  header.top {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 32px;
+  }
+  header.top h1 { margin: 0; font-size: 18px; }
+  header.top p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+  main {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 0 16px;
+    display: grid;
+    gap: 16px;
+  }
+  .card {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-  }
-  .simple-card h1 {
-    margin: 0 0 12px;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    text-align: center;
-  }
-  .simple-display {
-    background: #0f172a;
-    color: white;
     border-radius: 10px;
-    padding: 18px 16px;
-    text-align: right;
-    font-family: "SF Mono", Menlo, monospace;
-    margin-bottom: 14px;
-    min-height: 84px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    padding: 18px 20px;
   }
-  .simple-display .history {
-    font-size: 13px; color: #94a3b8; min-height: 16px;
-    word-break: break-all; line-height: 1.3;
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
   }
-  .simple-display .current {
-    font-size: 24px; font-weight: 600; margin-top: 4px;
-    word-break: break-all; line-height: 1.2;
+  .card h2 {
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
   }
-  .simple-display .current.error { color: #fca5a5; font-size: 15px; }
-
-  .keypad {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .keypad button {
-    font: inherit; font-size: 16px; font-weight: 500;
-    border: 1px solid var(--line); background: white;
-    border-radius: 10px; padding: 14px 0; cursor: pointer;
-    transition: background 0.08s, border-color 0.08s, opacity 0.08s;
-  }
-  .keypad button:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
-  .keypad button:active:not(:disabled) { background: #e5e7eb; }
-  .keypad button:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  .keypad button.op {
-    background: var(--accent-soft); color: var(--accent);
-    border-color: #c7d6ff; font-weight: 600;
-  }
-  .keypad button.op:hover:not(:disabled) { background: #c7d6ff; }
-
-  .keypad button.func {
-    background: var(--func-soft); color: var(--func);
-    border-color: #fde68a; font-weight: 600; font-size: 14px;
-  }
-  .keypad button.func:hover:not(:disabled) { background: #fde68a; }
-
-  .keypad button.fn {
-    background: #fef2f2; color: var(--danger); border-color: #fecaca;
-  }
-  .keypad button.fn:hover:not(:disabled) { background: #fee2e2; }
-
-  .keypad button.eq {
-    background: var(--accent); color: white; border-color: var(--accent);
-    grid-column: span 4; padding: 16px 0; font-size: 18px;
-  }
-  .keypad button.eq:hover:not(:disabled) { background: #1d4ed8; }
-
-  /* ===== Convert popover ===== */
-  .scrim {
-    position: fixed; inset: 0;
-    background: rgba(15, 23, 42, 0.4);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 10;
-  }
-  .scrim[hidden] { display: none; }
-  .conv-card {
-    background: var(--panel);
-    border: 1px solid var(--line); border-radius: 12px;
-    padding: 18px 20px; width: 100%; max-width: 360px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  }
-  .conv-card h2 {
-    margin: 0 0 4px; font-size: 15px;
-  }
-  .conv-card .sub { color: var(--muted); margin: 0 0 14px; font-size: 12px; }
-  .conv-row {
-    display: grid; grid-template-columns: 80px 1fr; gap: 8px;
-    align-items: center; margin-bottom: 8px;
-  }
-  .conv-row label { font-size: 12px; color: var(--muted); }
-  .conv-row input, .conv-row select {
-    font: inherit; padding: 6px 8px;
-    border: 1px solid var(--line); border-radius: 6px;
-    background: white; width: 100%;
-  }
-  .conv-row input:focus, .conv-row select:focus {
-    outline: 2px solid var(--accent-soft); border-color: var(--accent);
-  }
-  .conv-preview {
-    margin-top: 8px; padding: 8px 10px;
-    background: #f8fafc; border-radius: 6px;
-    font-family: "SF Mono", Menlo, monospace; font-size: 12px;
+  .card-actions { display: flex; gap: 8px; align-items: center; }
+  .card-actions select, .card-actions button {
+    font: inherit; font-size: 13px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: white;
+    padding: 5px 10px;
+    cursor: pointer;
     color: var(--ink);
   }
-  .conv-preview .err { color: var(--danger); }
-  .conv-actions {
-    display: flex; gap: 8px; justify-content: flex-end;
-    margin-top: 14px;
+  .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== Pill row ===== */
+  .pill-row {
+    display: flex; flex-wrap: wrap; align-items: center;
+    min-height: 56px;
+    padding: 12px 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: #fafbfd;
   }
-  .conv-actions button {
-    font: inherit; padding: 7px 14px;
+
+  /* items-wrap is the recursive container */
+  .items-wrap {
+    display: inline-flex; flex-wrap: wrap; align-items: center;
+  }
+
+  /* Group and func wraps share styling */
+  .group-wrap, .func-wrap {
+    position: relative;
+    display: inline-flex; flex-wrap: wrap; align-items: center;
+    padding: 0 2px;
+    border-radius: 6px;
+  }
+  .group-wrap:hover, .func-wrap:hover {
+    background: rgba(176, 56, 146, 0.04);
+  }
+  .delete-handle {
+    position: absolute;
+    top: -8px; right: -4px;
+    background: white;
+    color: var(--err);
+    border: 1px solid var(--err);
+    border-radius: 50%;
+    width: 18px; height: 18px;
+    font-size: 11px; font-weight: 700;
+    line-height: 1;
+    display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    padding: 0;
+  }
+  .group-wrap:hover > .delete-handle,
+  .func-wrap:hover > .delete-handle { display: inline-flex; }
+  .delete-handle:hover { background: var(--err); color: white; }
+
+  .pill {
+    font: inherit; font-size: 14px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    background: transparent;
+    margin: 2px 0;
+    transition: background 0.1s, border-color 0.1s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pill:hover { background: white; border-color: var(--line); }
+  .pill .caret { font-size: 9px; color: var(--muted); }
+
+  .pill-var {
+    color: var(--pill-var-ink);
+    background: var(--pill-var-bg);
+    border-color: var(--pill-var-bg);
+    font-weight: 600;
+  }
+  .pill-var:hover { border-color: var(--pill-var-ink); }
+
+  .pill-func-name {
+    color: var(--pill-func-ink);
+    background: var(--pill-func-bg);
+    border-color: var(--pill-func-bg);
+    font-weight: 600;
+  }
+  .pill-func-name:hover { border-color: var(--pill-func-ink); }
+
+  .pill-op {
+    color: var(--pill-op-ink);
+    font-weight: 700;
+    padding: 6px 8px;
+  }
+  .pill-lit {
+    color: var(--pill-lit-ink);
+    background: var(--pill-lit-bg);
+    border-color: var(--pill-lit-bg);
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  .pill-lit:hover { border-color: #9ca3af; }
+
+  /* Static bracket / comma decorations (not interactive) */
+  .deco {
+    color: var(--pill-paren-ink);
+    font-weight: 700;
+    padding: 6px 4px;
+    user-select: none;
+  }
+
+  /* Insertion points */
+  .ins-point {
+    font: inherit; font-size: 11px;
+    border: 1px dashed transparent;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 999px;
+    width: 20px; height: 20px;
+    line-height: 1;
+    opacity: 0.18;
+    transition: opacity 0.12s, background 0.12s;
+    margin: 0 1px;
+  }
+  .pill-row:hover .ins-point { opacity: 0.55; }
+  .ins-point:hover {
+    opacity: 1 !important;
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  /* Empty arg/group slot — labelled placeholder */
+  .arg-slot {
+    font: inherit; font-size: 12px;
+    border: 1px dashed var(--slot-border);
+    background: var(--slot-bg);
+    color: var(--slot-ink);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    margin: 2px 4px;
+    font-style: italic;
+  }
+  .arg-slot:hover {
+    background: #fef3c7;
+    border-style: solid;
+  }
+
+  .empty-hint { color: var(--muted); font-style: italic; padding: 6px 4px; }
+
+  /* Active (cursor) state for insertion points + arg slots */
+  .ins-point.active {
+    opacity: 1 !important;
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.18);
+  }
+  .arg-slot.active {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.15);
+  }
+
+  /* ===== Insert toolbar ===== */
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .tb-grp { display: flex; align-items: center; gap: 4px; }
+  .tb-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+
+  .tb-btn {
+    font: inherit; font-size: 14px; font-weight: 600;
     border: 1px solid var(--line); background: white;
-    border-radius: 6px; cursor: pointer;
+    border-radius: 6px;
+    padding: 0 12px;
+    height: 32px;
+    min-width: 36px;
+    cursor: pointer; color: var(--ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 4px;
   }
-  .conv-actions button.primary {
-    background: var(--accent); color: white; border-color: var(--accent);
+  .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tb-btn.op    { font-size: 16px; color: var(--pill-op-ink); }
+  .tb-btn.op:hover { border-color: var(--pill-op-ink); color: var(--pill-op-ink); }
+  .tb-btn.paren { color: var(--pill-paren-ink); }
+  .tb-btn.paren:hover { border-color: var(--pill-paren-ink); color: var(--pill-paren-ink); }
+  .tb-btn .caret { font-size: 9px; color: var(--muted); }
+
+  .tb-dropdown { position: relative; }
+  .tb-dd-panel {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    min-width: 240px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 5;
+    padding: 6px;
   }
-  .conv-actions button.primary:disabled {
-    background: #cbd5e1; border-color: #cbd5e1; cursor: not-allowed;
+  .tb-dd-panel[hidden] { display: none; }
+  .tb-search {
+    font: inherit; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
   }
-  .conv-actions button:hover:not(:disabled) {
+  .tb-search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .tb-dd-list { display: flex; flex-direction: column; gap: 1px; }
+  .tb-dd-item {
+    font: inherit;
+    border: none; background: white;
+    padding: 8px 10px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+  .tb-dd-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
+  .tb-dd-item .name { display: block; font-weight: 600; font-size: 13px; }
+  .tb-dd-item .sub  { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+
+  .tb-lit-lbl { font-size: 12px; color: var(--muted); }
+  .tb-lit-input {
+    font: inherit;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 0 10px; height: 32px;
+    width: 120px;
+  }
+  .tb-lit-input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  /* Text preview */
+  .text-preview-row {
+    margin-top: 12px;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+    display: flex; gap: 10px; align-items: baseline;
+  }
+  .text-preview-row .lbl {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted);
+    flex-shrink: 0;
+  }
+  .text-preview {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--ink);
+    word-break: break-word;
+  }
+
+  /* Validation strip */
+  .validation {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .validation.ok  { background: var(--ok-soft);  color: var(--ok);  border: 1px solid #a7f3d0; }
+  .validation.err { background: var(--err-soft); color: var(--err); border: 1px solid #fecaca; }
+  .validation.neutral { background: #f3f4f6; color: var(--muted); border: 1px solid var(--line); }
+
+  pre.json {
+    background: #0f172a; color: #e2e8f0;
+    padding: 14px 16px; border-radius: 8px;
+    font-family: "SF Mono", Menlo, monospace; font-size: 12.5px;
+    overflow-x: auto;
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  .hint-card ul { margin: 8px 0 0; padding-left: 18px; }
+  .hint-card li { color: var(--muted); margin: 4px 0; }
+  .hint-card code {
+    background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
+    font-size: 12px; color: var(--ink);
+  }
+
+  /* ===== Popover ===== */
+  .scrim {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 16px;
+  }
+  .scrim[hidden] { display: none; }
+  .popover-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: 100%; max-width: 440px;
+    max-height: calc(100vh - 32px);
+    display: flex; flex-direction: column;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  .popover-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .popover-header h3 { margin: 0; font-size: 15px; }
+  .popover-context {
+    color: var(--muted); font-size: 12px; padding: 0 18px 8px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .back-btn {
+    font: inherit; font-size: 16px;
+    border: 1px solid var(--line); background: white;
+    border-radius: 6px; width: 30px; height: 30px;
+    cursor: pointer; color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .back-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+  .screen { padding: 16px 18px; overflow-y: auto; }
+  .screen-section { margin-bottom: 16px; }
+
+  .quick-strip {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .quick {
+    font: inherit; font-size: 16px;
+    border: 1px solid var(--line);
+    background: white;
+    border-radius: 6px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0 10px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .quick:hover { border-color: var(--accent); color: var(--accent); }
+  .quick.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .quick.group-quick { font-size: 14px; gap: 2px; }
+
+  .literal-label {
+    display: block; font-size: 12px; color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .literal-input {
+    font: inherit; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; background: white;
+  }
+  .literal-input:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+  }
+
+  .category-list {
+    display: flex; flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .category {
+    font: inherit;
+    border: none; background: white;
+    padding: 14px 16px;
+    cursor: pointer;
+    text-align: left;
+    display: flex; align-items: center; gap: 12px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .category:last-child { border-bottom: none; }
+  .category:hover { background: #f8fafc; }
+  .category-icon {
+    width: 28px; height: 28px;
+    background: #f3f4f6; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px;
+  }
+  .category-text { flex: 1; }
+  .category-title { font-weight: 600; font-size: 14px; }
+  .category-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .category-arrow { color: var(--muted); font-size: 16px; }
+
+  .search {
+    font: inherit; width: 100%;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; background: white;
+    margin-bottom: 10px;
+  }
+  .search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  .picker-list {
+    max-height: 280px; overflow-y: auto;
+    border: 1px solid var(--line-soft); border-radius: 6px;
+  }
+  .picker-item {
+    font: inherit;
+    display: block; width: 100%;
+    border: none; background: white;
+    padding: 10px 14px;
+    text-align: left;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink);
+  }
+  .picker-item:last-child { border-bottom: none; }
+  .picker-item:hover { background: #f8fafc; }
+  .picker-item.active {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+  .picker-title { display: block; font-weight: 600; font-size: 14px; }
+  .picker-sub   { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .popover-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line-soft);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .popover-footer button {
+    font: inherit;
+    border: 1px solid var(--line); background: white;
+    padding: 7px 16px; border-radius: 6px;
+    cursor: pointer; color: var(--ink);
+  }
+  .popover-footer button:hover:not(:disabled) {
     border-color: var(--accent); color: var(--accent);
   }
-  .conv-actions button.primary:hover:not(:disabled) {
-    background: #1d4ed8; color: white;
+  .popover-footer button.primary {
+    background: var(--accent); color: white; border-color: var(--accent);
   }
+  .popover-footer button.primary:hover:not(:disabled) { background: var(--accent-deep); }
+  .popover-footer button.primary:disabled {
+    background: #cbd5e1; border-color: #cbd5e1; cursor: not-allowed;
+  }
+  .popover-footer button.danger {
+    color: var(--err); border-color: transparent;
+  }
+  .popover-footer button.danger:hover { background: #fef2f2; border-color: #fecaca; color: var(--err); }
 </style>
 </head>
 <body>
 
-<div class="simple-wrap">
-  <div class="simple-card">
-    <h1>Calculator</h1>
-    <div class="simple-display">
-      <div class="history" id="history">&nbsp;</div>
-      <div class="current" id="current">0</div>
-    </div>
-    <div class="keypad" id="keypad"></div>
-  </div>
-</div>
+<header class="top">
+  <h1>Calculation Builder</h1>
+  <p>Build a fee/calculation formula by inserting items. Operators, variables, and functions are all picked from constrained lists — no free-text expressions.</p>
+</header>
 
-<!-- Convert popover -->
-<div class="scrim" id="conv-scrim" hidden>
-  <div class="conv-card">
-    <h2>Convert (FX)</h2>
-    <p class="sub">Convert an amount from one currency to another, rounded to the given scale.</p>
+<main>
+  <section class="card">
+    <div class="card-head">
+      <h2>Formula</h2>
+      <div class="card-actions">
+        <select id="preset-select">
+          <option value="">Load example…</option>
+        </select>
+        <button id="clear-btn">Clear</button>
+      </div>
+    </div>
+    <div class="toolbar" id="toolbar">
+      <div class="tb-grp">
+        <button class="tb-btn op" data-tb="op" data-op="add">+</button>
+        <button class="tb-btn op" data-tb="op" data-op="subtract">−</button>
+        <button class="tb-btn op" data-tb="op" data-op="multiply">×</button>
+        <button class="tb-btn op" data-tb="op" data-op="divide">÷</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-grp">
+        <button class="tb-btn paren" data-tb="group">( )</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-grp">
+        <div class="tb-dropdown">
+          <button class="tb-btn" id="tb-var-btn">Variable <span class="caret">▾</span></button>
+          <div class="tb-dd-panel" id="tb-var-panel" hidden>
+            <input class="tb-search" id="tb-var-search" placeholder="Search variables…" />
+            <div class="tb-dd-list" id="tb-var-list"></div>
+          </div>
+        </div>
+        <div class="tb-dropdown">
+          <button class="tb-btn" id="tb-func-btn">Function <span class="caret">▾</span></button>
+          <div class="tb-dd-panel" id="tb-func-panel" hidden>
+            <div class="tb-dd-list" id="tb-func-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-grp">
+        <span class="tb-lit-lbl">Literal</span>
+        <input class="tb-lit-input" id="tb-lit-input" type="text" placeholder="number or text" />
+        <button class="tb-btn" id="tb-lit-add">Add</button>
+      </div>
+    </div>
 
-    <div class="conv-row">
-      <label>Amount</label>
-      <input type="number" step="any" id="conv-amount" />
+    <div class="pill-row" id="pill-row"></div>
+    <div class="text-preview-row">
+      <span class="lbl">Text</span>
+      <div class="text-preview" id="text-preview">—</div>
     </div>
-    <div class="conv-row">
-      <label>Scale</label>
-      <select id="conv-scale">
-        <option value="0">0 decimals</option>
-        <option value="2" selected>2 decimals</option>
-        <option value="4">4 decimals</option>
-        <option value="6">6 decimals</option>
-      </select>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Saved JSON</h2></div>
+    <div class="validation neutral" id="validation">Formula is empty.</div>
+    <pre class="json" id="output-json">{}</pre>
+  </section>
+
+  <section class="card hint-card">
+    <div class="card-head"><h2>How it works</h2></div>
+    <ul>
+      <li>Use the <strong>toolbar</strong> above the formula to insert items with one click — operators, variables, functions, and literals all go in at the current cursor.</li>
+      <li>The blue, pulsing <code>+</code> button is the <strong>cursor</strong> — your next insert lands there. Click any other <code>+</code> (or empty arg slot) to move the cursor.</li>
+      <li>Picking a function or <code>( )</code> auto-drills the cursor into its first arg so you can keep typing left-to-right.</li>
+      <li>Click any pill to edit or replace it. Hover a function/group to reveal an <strong>×</strong> that deletes it whole.</li>
+      <li>Commas are structural — they appear automatically between function args, you never type them.</li>
+      <li>Saved JSON updates live; variables emit as <code>"@id"</code>, literals stay as raw strings.</li>
+    </ul>
+  </section>
+</main>
+
+<!-- ===== Item Details popover ===== -->
+<div class="scrim" id="popover" hidden>
+  <div class="popover-card">
+    <div class="popover-header">
+      <button class="back-btn" id="back-btn" hidden>‹</button>
+      <h3 id="popover-title">Item Details</h3>
     </div>
-    <div class="conv-row">
-      <label>From</label>
-      <select id="conv-from"></select>
-    </div>
-    <div class="conv-row">
-      <label>To</label>
-      <select id="conv-to"></select>
+    <div class="popover-context" id="popover-context"></div>
+
+    <!-- Main screen -->
+    <div class="screen" id="screen-main">
+      <div class="screen-section">
+        <div class="quick-strip">
+          <button class="quick" data-quick="op" data-op="add">+</button>
+          <button class="quick" data-quick="op" data-op="subtract">−</button>
+          <button class="quick" data-quick="op" data-op="multiply">×</button>
+          <button class="quick" data-quick="op" data-op="divide">÷</button>
+          <button class="quick group-quick" data-quick="group">( )</button>
+        </div>
+      </div>
+
+      <div class="screen-section">
+        <label class="literal-label" for="literal-input">Literal</label>
+        <input class="literal-input" id="literal-input" type="text"
+               placeholder="Enter a number or text" />
+      </div>
+
+      <div class="category-list">
+        <button class="category" data-goto="variables">
+          <div class="category-icon">𝑥</div>
+          <div class="category-text">
+            <div class="category-title">Variables</div>
+            <div class="category-sub">Pick a variable from the predefined set</div>
+          </div>
+          <div class="category-arrow">›</div>
+        </button>
+        <button class="category" data-goto="functions">
+          <div class="category-icon">ƒ</div>
+          <div class="category-text">
+            <div class="category-title">Functions</div>
+            <div class="category-sub">Pick a function from the predefined set</div>
+          </div>
+          <div class="category-arrow">›</div>
+        </button>
+      </div>
     </div>
 
-    <div class="conv-preview" id="conv-preview">&nbsp;</div>
+    <!-- Variables screen -->
+    <div class="screen" id="screen-variables" hidden>
+      <input class="search" id="var-search" placeholder="Search variables…" />
+      <div class="picker-list" id="var-list"></div>
+    </div>
 
-    <div class="conv-actions">
-      <button id="conv-cancel">Cancel</button>
-      <button id="conv-insert" class="primary">Insert</button>
+    <!-- Functions screen -->
+    <div class="screen" id="screen-functions" hidden>
+      <div class="picker-list" id="func-list"></div>
+    </div>
+
+    <div class="popover-footer">
+      <button id="delete-btn" class="danger" hidden>Delete</button>
+      <button id="cancel-btn">Cancel</button>
+      <button id="ok-btn" class="primary" disabled>OK</button>
     </div>
   </div>
 </div>
 
 <script>
 /* =====================================================================
- * Button-driven calculator that mirrors the spec's operator rules.
+ * Calculation Builder — tree-shaped item model.
  *
- * Supported operators:
- *   +  −  ×  ÷                  binary, BigDecimal-semantics (JS number here)
- *   min(a, b)                   strict binary
- *   max(a, b)                   strict binary
- *   round(value, scale)         strict binary
- *   convert(...) 8 operands     amount, scale, "from", fromCcy,
- *                               "to", toCcy, "rate", rateType
- *   ( )                         parentheses for order of operations
+ * Top-level state is `state.items` — an array of items. Items:
  *
- * Free-text input is disabled — every keystroke goes through `press()`,
- * every button is auto-disabled when it would produce an invalid state,
- * and `convert` opens a constrained dropdown popover (no typing of
- * currency codes or rate types).
+ *   { kind: "op",   op: "add" | "subtract" | "multiply" | "divide" }
+ *   { kind: "var",  id, label }
+ *   { kind: "lit",  value: string }
+ *   { kind: "group", items: [ … recursive … ] }
+ *   { kind: "func", name: "min" | "max" | "round" | "convert",
+ *                   args: [ [ … ], [ … ], … ] }   /* one inner array per arg slot
+ *
+ * Commas and parentheses are STRUCTURAL — never their own items, never
+ * typed by the user. The renderer draws them between args / around
+ * groups. Each function's `args.length` is fixed by its arity, so the
+ * comma positions are determined by the tree shape, not by input.
+ *
+ * On every change we walk each items[] with precedence to produce an
+ * AST, then serialize to nested-operator JSON.
  * ===================================================================== */
 
-const FUNCS = new Set(["min", "max", "round"]); /* binary-arity functions */
+/* ---- Config -------------------------------------------------------- */
 
-/* Demo FX rates (USD-per-1-unit equivalent table; cross-pairs computed). */
-const CURRENCIES = ["USD", "EUR", "GBP", "INR", "JPY", "AUD"];
-const FX = {
-  USD: { INR: 84.20, EUR: 0.93,   GBP: 0.79,   JPY: 156.0, AUD: 1.52 },
-  EUR: { INR: 90.55, USD: 1.075,  GBP: 0.85,   JPY: 167.7, AUD: 1.63 },
-  GBP: { INR: 106.6, USD: 1.265,  EUR: 1.176,  JPY: 197.5, AUD: 1.92 },
-  INR: { USD: 0.01188, EUR: 0.01104, GBP: 0.00938, JPY: 1.853, AUD: 0.01806 },
-  JPY: { INR: 0.540, USD: 0.00641, EUR: 0.00597, GBP: 0.00506, AUD: 0.00974 },
-  AUD: { INR: 55.39, USD: 0.658,  EUR: 0.614,  GBP: 0.521,  JPY: 102.65 }
-};
-function fxRate(from, to) {
-  if (from === to) return 1;
-  const base = FX[from]?.[to];
-  if (base == null) throw new Error(`No rate ${from}→${to}`);
-  return base;
-}
-
-const KEYS = [
-  { label: "min",  type: "func", act: "func", name: "min" },
-  { label: "max",  type: "func", act: "func", name: "max" },
-  { label: "round",type: "func", act: "func", name: "round" },
-  { label: "conv", type: "func", act: "convert" },
-
-  { label: "C",  type: "fn", act: "clear" },
-  { label: "⌫", type: "fn", act: "back" },
-  { label: "(",  type: "op", act: "lparen" },
-  { label: ")",  type: "op", act: "rparen" },
-
-  { label: "7", type: "num" }, { label: "8", type: "num" }, { label: "9", type: "num" },
-  { label: "÷", type: "op", act: "op", op: "÷" },
-
-  { label: "4", type: "num" }, { label: "5", type: "num" }, { label: "6", type: "num" },
-  { label: "×", type: "op", act: "op", op: "×" },
-
-  { label: "1", type: "num" }, { label: "2", type: "num" }, { label: "3", type: "num" },
-  { label: "−", type: "op", act: "op", op: "−" },
-
-  { label: "0", type: "num" }, { label: ".", type: "num" },
-  { label: ",", type: "op", act: "comma" },
-  { label: "+", type: "op", act: "op", op: "+" },
-
-  { label: "=", type: "eq", act: "eq" }
+const VARIABLES = [
+  { id: "principal",          label: "Principal",          type: "number", unit: "₹" },
+  { id: "interest_rate",      label: "Interest rate",      type: "number", unit: "%" },
+  { id: "tenure_months",      label: "Tenure",             type: "number", unit: "months" },
+  { id: "transaction_amount", label: "Transaction amount", type: "number", unit: "₹" },
+  { id: "fee_floor",          label: "Minimum fee",        type: "number", unit: "₹" },
+  { id: "fee_ceiling",        label: "Maximum fee",        type: "number", unit: "₹" }
 ];
 
-const $ = sel => document.querySelector(sel);
-const el = (tag, props = {}, ...children) => {
-  const e = document.createElement(tag);
-  Object.entries(props).forEach(([k, v]) => {
-    if (k === "class") e.className = v;
-    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
-    else e.setAttribute(k, v);
-  });
-  for (const c of children) {
-    if (c == null || c === false) continue;
-    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
-  }
-  return e;
+const OPS = {
+  add:      { symbol: "+", precedence: 1 },
+  subtract: { symbol: "−", precedence: 1 },
+  multiply: { symbol: "×", precedence: 2 },
+  divide:   { symbol: "÷", precedence: 2 }
 };
+
+const FUNCTIONS = [
+  { name: "min",     label: "Min",     signature: "min ( Expression , Expression )" },
+  { name: "max",     label: "Max",     signature: "max ( Expression , Expression )" },
+  { name: "round",   label: "Round",   signature: "round ( Expression , Scale )" },
+  { name: "convert", label: "Convert", signature: "convert ( Amount , Scale , From , To )" }
+];
+
+const FUNC_ARG_LABELS = {
+  min:     ["Expression", "Expression"],
+  max:     ["Expression", "Expression"],
+  round:   ["Expression", "Scale"],
+  convert: ["Amount", "Scale", "From", "To"]
+};
+const FUNC_ARITY = Object.fromEntries(
+  Object.entries(FUNC_ARG_LABELS).map(([k, v]) => [k, v.length])
+);
+
+/* short constructors */
+function v(id) {
+  const x = VARIABLES.find(x => x.id === id);
+  return { kind: "var", id, label: x.label };
+}
+function op(k)    { return { kind: "op", op: k }; }
+function lit(val) { return { kind: "lit", value: val }; }
+function grp(items = []) { return { kind: "group", items }; }
+function fn(name, args = null) {
+  const a = args ?? Array.from({ length: FUNC_ARITY[name] }, () => []);
+  return { kind: "func", name, args: a };
+}
+
+const PRESETS = {
+  "simple-interest": {
+    label: "Simple interest",
+    items: [
+      v("principal"), op("multiply"),
+      v("interest_rate"), op("multiply"),
+      v("tenure_months"), op("divide"),
+      lit("1200")
+    ]
+  },
+  "capped-fee": {
+    label: "Capped percentage fee",
+    items: [
+      fn("min", [
+        [ v("fee_ceiling") ],
+        [ v("transaction_amount"), op("multiply"), lit("0.01") ]
+      ])
+    ]
+  },
+  "tiered-fee": {
+    label: "Tiered fee (floor + ceiling)",
+    items: [
+      fn("max", [
+        [ v("fee_floor") ],
+        [ fn("min", [
+            [ v("fee_ceiling") ],
+            [ v("transaction_amount"), op("multiply"), lit("0.001") ]
+          ]) ]
+      ])
+    ]
+  },
+  "fx-fee": {
+    label: "FX conversion + fee",
+    items: [
+      fn("convert", [
+        [ v("transaction_amount") ],
+        [ lit("2") ],
+        [ lit("USD") ],
+        [ lit("INR") ]
+      ]),
+      op("multiply"),
+      lit("0.015")
+    ]
+  }
+};
+
+/* ---- State -------------------------------------------------------- */
 
 const state = {
-  tokens: [],          /* string tokens OR compound objects (convert) */
-  justEvaluated: false,
-  buttons: {}
+  items: [],
+  /* cursor = where the next toolbar-driven insert will land */
+  cursor: { arrPath: [], pos: 0 },
+  popover: {
+    open: false,
+    screen: "main",
+    editing: false,   /* false = inserting; true = replacing existing */
+    arrPath: [],      /* path to the parent array */
+    index: 0,         /* position within that array */
+    contextLabel: "", /* shown under the popover title */
+    draft: null
+  }
 };
 
-/* ---- token helpers ------------------------------------------------- */
+/* ---- Helpers ------------------------------------------------------ */
 
-const last       = () => state.tokens[state.tokens.length - 1];
-const isNumber   = t => typeof t === "string" && /^\d+(\.\d*)?$/.test(t);
-const isBinaryOp = t => t === "+" || t === "−" || t === "×" || t === "÷";
-const isCompound = t => t != null && typeof t === "object";
-const endsPrimary = t => isNumber(t) || isCompound(t) || t === ")";
+const $  = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
 
-/* Open-paren stack: array of { name, commas } where name is the function
- * name (or null for a plain "("). Rebuilt from tokens each call. */
-function openStack(tokens = state.tokens) {
-  const stack = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t === "(") {
-      const prev = tokens[i - 1];
-      const name = FUNCS.has(prev) ? prev : null;
-      stack.push({ name, commas: 0 });
-    } else if (t === ")") {
-      stack.pop();
-    } else if (t === ",") {
-      if (stack.length) stack[stack.length - 1].commas++;
-    }
+function isNumericLit(s) { return /^-?\d+(\.\d+)?$/.test(s); }
+function cloneItem(it)   { return JSON.parse(JSON.stringify(it)); }
+
+function getArr(arrPath) {
+  let n = state.items;
+  for (const step of arrPath) n = n[step];
+  return n;
+}
+
+/* ---- Cursor helpers ---------------------------------------------- */
+
+function isCursorAt(arrPath, pos) {
+  const c = state.cursor;
+  if (c.pos !== pos) return false;
+  if (c.arrPath.length !== arrPath.length) return false;
+  return c.arrPath.every((v, i) => v === arrPath[i]);
+}
+
+function moveCursor(arrPath, pos) {
+  state.cursor = { arrPath: [...arrPath], pos };
+  renderAll();
+}
+
+/* Insert an item at the cursor position, then advance the cursor.
+ * For func/group, drill the cursor into the first child slot so the
+ * user can keep building left-to-right without an extra click. */
+function insertAtCursor(item) {
+  const arr = getArr(state.cursor.arrPath);
+  const at  = state.cursor.pos;
+  arr.splice(at, 0, item);
+
+  if (item.kind === "func") {
+    state.cursor = {
+      arrPath: [...state.cursor.arrPath, at, "args", 0],
+      pos: 0
+    };
+  } else if (item.kind === "group") {
+    state.cursor = {
+      arrPath: [...state.cursor.arrPath, at, "items"],
+      pos: 0
+    };
+  } else {
+    state.cursor.pos = at + 1;
   }
-  return stack;
+  closeDropdowns();
+  renderAll();
 }
 
-function expectingPrimary() {
-  const t = last();
-  return t == null || isBinaryOp(t) || t === "(" || t === ",";
+function closeDropdowns() {
+  $("#tb-var-panel").hidden = true;
+  $("#tb-func-panel").hidden = true;
 }
 
-/* All our binary-arity funcs take exactly one comma. */
-function maxCommas(funcName) {
-  if (funcName === "min" || funcName === "max" || funcName === "round") return 1;
-  return 0; /* plain paren: no commas */
-}
+/* ---- Render: pill row -------------------------------------------- */
 
-/* ---- render -------------------------------------------------------- */
+function renderPillRow() {
+  const row = $("#pill-row");
+  row.innerHTML = "";
+  const top = renderItemsArray(state.items, []);
+  /* unwrap to row directly so the row's flex applies */
+  while (top.firstChild) row.appendChild(top.firstChild);
 
-function renderKeypad() {
-  const pad = $("#keypad");
-  KEYS.forEach(k => {
-    const b = el("button", {
-      class: [k.type, k.act === "eq" ? "eq" : ""].join(" ").trim(),
-      onclick: () => press(k)
-    }, k.label);
-    state.buttons[k.label] = b;
-    pad.appendChild(b);
-  });
-}
-
-function tokenToText(t) {
-  if (isCompound(t) && t.kind === "convert") {
-    return `convert(${t.amount}, ${t.scale}, ${t.fromCcy}→${t.toCcy})`;
+  if (state.items.length === 0) {
+    const hint = document.createElement("span");
+    hint.className = "empty-hint";
+    hint.textContent = "Use the toolbar above to add your first item";
+    row.appendChild(hint);
   }
-  return t;
 }
 
-function renderTokens(tokens) {
-  /* fuse `<func> (` for nicer display */
-  const out = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (typeof t === "string" && FUNCS.has(t) && tokens[i + 1] === "(") {
-      out.push(t + "(");
-      i++;
+function renderItemsArray(items, arrPath, slotLabel = null) {
+  const wrap = document.createElement("span");
+  wrap.className = "items-wrap";
+
+  if (items.length === 0) {
+    /* For function arg / group slots we show a labelled placeholder.
+     * For the top-level empty row, just show a plain insertion point —
+     * the cursor highlighting and toolbar carry the cue. */
+    if (slotLabel) {
+      wrap.appendChild(makeArgSlot(arrPath, 0, slotLabel));
     } else {
-      out.push(tokenToText(t));
+      wrap.appendChild(makeInsPoint(arrPath, 0));
+    }
+    return wrap;
+  }
+
+  for (let i = 0; i <= items.length; i++) {
+    wrap.appendChild(makeInsPoint(arrPath, i));
+    if (i < items.length) {
+      wrap.appendChild(renderItem(items[i], arrPath, i));
     }
   }
-  return out.join(" ");
+  return wrap;
 }
 
-function redraw() {
-  const cur = $("#current");
-  cur.classList.remove("error");
-  cur.textContent = state.tokens.length === 0 ? "0" : renderTokens(state.tokens);
-  updateDisabled();
-}
-
-function updateDisabled() {
-  const t = last();
-  const expect = expectingPrimary();
-  const stack = openStack();
-  const top = stack[stack.length - 1];
-  const insideFunc = top && top.name;
-  const endsExpr = endsPrimary(t);
-
-  /* digits */
-  const numOK = expect || isNumber(t);
-  ["0","1","2","3","4","5","6","7","8","9"].forEach(n => disable(n, !numOK));
-  const dotOK = (isNumber(t) && !t.includes(".")) || expect;
-  disable(".", !dotOK);
-
-  /* binary + × ÷ */
-  const binOK = endsExpr;
-  ["+", "×", "÷"].forEach(o => disable(o, !binOK));
-  /* − is also valid in primary position (unary) */
-  disable("−", !(binOK || expect));
-
-  /* "(" — primary or implicit × */
-  disable("(", !(expect || endsExpr));
-
-  /* ")" — needs an open and a complete expression inside.
-     For binary funcs, also requires the right comma count. */
-  let rparenOK = stack.length > 0 && endsExpr;
-  if (insideFunc) rparenOK = rparenOK && (top.commas === maxCommas(top.name));
-  disable(")", !rparenOK);
-
-  /* "," — inside a function call, after a complete expression,
-     and not exceeding the function's comma cap */
-  let commaOK = insideFunc && endsExpr && (top.commas < maxCommas(top.name));
-  disable(",", !commaOK);
-
-  /* function keys + conv */
-  const funcOK = expect || endsExpr;
-  ["min", "max", "round", "conv"].forEach(f => disable(f, !funcOK));
-
-  /* equals — only when the expression is complete */
-  const hasNumOrCompound = state.tokens.some(x => isNumber(x) || isCompound(x));
-  disable("=", !(hasNumOrCompound && endsExpr && stack.length === 0));
-
-  disable("⌫", state.tokens.length === 0);
-  disable("C",  state.tokens.length === 0);
-}
-
-function disable(label, on) {
-  const b = state.buttons[label];
-  if (b) b.disabled = !!on;
-}
-
-/* ---- press dispatcher --------------------------------------------- */
-
-function press(k) {
-  if (state.justEvaluated &&
-      (k.type === "num" || k.act === "lparen" ||
-       k.act === "func" || k.act === "convert")) {
-    state.tokens = [];
+function renderItem(item, arrPath, index) {
+  if (item.kind === "op" || item.kind === "var" || item.kind === "lit") {
+    return makePill(item, arrPath, index);
   }
-  state.justEvaluated = false;
-
-  if (k.type === "num")    return pressNum(k.label);
-  if (k.act === "op")      return pressOp(k.op);
-  if (k.act === "lparen")  return pressLParen();
-  if (k.act === "rparen")  return pressRParen();
-  if (k.act === "comma")   return pressComma();
-  if (k.act === "func")    return pressFunc(k.name);
-  if (k.act === "convert") return openConvPopover();
-  if (k.act === "back")    return pressBack();
-  if (k.act === "clear")   return pressClear();
-  if (k.act === "eq")      return pressEq();
+  if (item.kind === "group") {
+    const wrap = document.createElement("span");
+    wrap.className = "group-wrap";
+    wrap.appendChild(makeDeco("("));
+    wrap.appendChild(renderItemsArray(item.items, [...arrPath, index, "items"], "Expression"));
+    wrap.appendChild(makeDeco(")"));
+    wrap.appendChild(makeDeleteHandle(arrPath, index, "Remove parentheses"));
+    return wrap;
+  }
+  if (item.kind === "func") {
+    const wrap = document.createElement("span");
+    wrap.className = "func-wrap";
+    wrap.appendChild(makePill(item, arrPath, index));   /* function name pill */
+    wrap.appendChild(makeDeco("("));
+    const labels = FUNC_ARG_LABELS[item.name] || [];
+    item.args.forEach((arg, i) => {
+      if (i > 0) wrap.appendChild(makeDeco(","));
+      wrap.appendChild(renderItemsArray(
+        arg,
+        [...arrPath, index, "args", i],
+        labels[i] || "Expression"
+      ));
+    });
+    wrap.appendChild(makeDeco(")"));
+    wrap.appendChild(makeDeleteHandle(arrPath, index, "Remove " + item.name));
+    return wrap;
+  }
 }
 
-function pressNum(ch) {
-  const t = last();
-  if (isNumber(t)) {
-    if (ch === "." && t.includes(".")) return;
-    if (t === "0" && ch !== ".") {
-      state.tokens[state.tokens.length - 1] = ch;
-      return redraw();
-    }
-    state.tokens[state.tokens.length - 1] = t + ch;
-  } else if (expectingPrimary()) {
-    state.tokens.push(ch === "." ? "0." : ch);
-  } else if (endsPrimary(t)) {
-    /* implicit × when typing a digit right after ")" or a compound */
-    state.tokens.push("×", ch === "." ? "0." : ch);
+function makePill(item, arrPath, index) {
+  const btn = document.createElement("button");
+  if (item.kind === "func") {
+    btn.className = "pill pill-func-name";
+    btn.textContent = item.name;
+    const caret = document.createElement("span");
+    caret.className = "caret";
+    caret.textContent = "▾";
+    btn.appendChild(caret);
   } else {
-    return;
-  }
-  redraw();
-}
-
-function pressOp(op) {
-  const t = last();
-  if (t == null) { if (op === "−") { state.tokens.push(op); redraw(); } return; }
-  if (isBinaryOp(t)) {
-    if (op === "−" && (t === "×" || t === "÷")) state.tokens.push(op);
-    else state.tokens[state.tokens.length - 1] = op;
-    return redraw();
-  }
-  if (t === "(" || t === ",") {
-    if (op === "−") { state.tokens.push(op); redraw(); }
-    return;
-  }
-  if (endsPrimary(t)) { state.tokens.push(op); redraw(); }
-}
-
-function pressLParen() {
-  const t = last();
-  if (endsPrimary(t)) state.tokens.push("×"); /* implicit × */
-  state.tokens.push("(");
-  redraw();
-}
-
-function pressRParen() {
-  const stack = openStack();
-  if (stack.length === 0) return;
-  const top = stack[stack.length - 1];
-  if (!endsPrimary(last())) return;
-  if (top.name && top.commas !== maxCommas(top.name)) return;
-  state.tokens.push(")");
-  redraw();
-}
-
-function pressComma() {
-  const stack = openStack();
-  if (stack.length === 0) return;
-  const top = stack[stack.length - 1];
-  if (!top.name) return; /* commas only inside function calls */
-  if (top.commas >= maxCommas(top.name)) return;
-  if (!endsPrimary(last())) return;
-  state.tokens.push(",");
-  redraw();
-}
-
-function pressFunc(name) {
-  const t = last();
-  if (endsPrimary(t)) state.tokens.push("×"); /* implicit × */
-  state.tokens.push(name, "(");
-  redraw();
-}
-
-function pressBack() {
-  if (state.tokens.length === 0) return;
-  const t = last();
-  if (isNumber(t) && t.length > 1) {
-    state.tokens[state.tokens.length - 1] = t.slice(0, -1);
-  } else {
-    state.tokens.pop();
-    /* removing "(" of a function call also removes the function name */
-    if (t === "(" && FUNCS.has(last())) state.tokens.pop();
-  }
-  redraw();
-}
-
-function pressClear() {
-  state.tokens = [];
-  $("#history").innerHTML = "&nbsp;";
-  redraw();
-}
-
-function pressEq() {
-  if (state.tokens.length === 0) return;
-  const display = renderTokens(state.tokens);
-  try {
-    const result = evaluate(state.tokens);
-    const shown = Number.isFinite(result)
-      ? Number(result.toPrecision(12)).toString()
-      : String(result);
-    $("#history").textContent = display + " =";
-    state.tokens = [shown];
-    state.justEvaluated = true;
-    const cur = $("#current");
-    cur.classList.remove("error");
-    cur.textContent = shown;
-    updateDisabled();
-  } catch (e) {
-    $("#history").textContent = display + " =";
-    const cur = $("#current");
-    cur.classList.add("error");
-    cur.textContent = e.message;
-    state.justEvaluated = true;
-    updateDisabled();
-  }
-}
-
-/* ---- evaluator ---------------------------------------------------- */
-
-function evaluate(rawTokens) {
-  const ts = rawTokens.slice();
-  if (ts.length === 0) throw new Error("Empty");
-
-  const tail = ts[ts.length - 1];
-  if (isBinaryOp(tail)) throw new Error("Missing operand after " + tail);
-  if (tail === "(")     throw new Error("Empty (");
-  if (tail === ",")     throw new Error("Missing argument after ,");
-  if (typeof tail === "string" && FUNCS.has(tail)) throw new Error("Missing ( after " + tail);
-
-  const opens  = ts.filter(t => t === "(").length;
-  const closes = ts.filter(t => t === ")").length;
-  if (opens > closes) throw new Error("Missing )");
-  if (closes > opens) throw new Error("Extra )");
-
-  let pos = 0;
-  const peek = () => ts[pos];
-  const next = () => ts[pos++];
-
-  function parseExpr() {
-    let l = parseTerm();
-    while (peek() === "+" || peek() === "−") {
-      const op = next();
-      const r = parseTerm();
-      l = { op, l, r };
+    btn.className = "pill pill-" + item.kind;
+    if (item.kind === "op")  btn.textContent = OPS[item.op].symbol;
+    if (item.kind === "var") {
+      btn.textContent = item.label;
+      const caret = document.createElement("span");
+      caret.className = "caret";
+      caret.textContent = "▾";
+      btn.appendChild(caret);
     }
-    return l;
+    if (item.kind === "lit") btn.textContent = isNumericLit(item.value) ? item.value : `"${item.value}"`;
   }
-  function parseTerm() {
-    let l = parsePrimary();
-    while (peek() === "×" || peek() === "÷") {
-      const op = next();
-      const r = parsePrimary();
-      l = { op, l, r };
-    }
-    return l;
-  }
-  function parsePrimary() {
-    const t = peek();
-    if (t === "−") { next(); return { op: "neg", a: parsePrimary() }; }
-    if (t === "(") {
-      next();
-      const e = parseExpr();
-      if (peek() !== ")") throw new Error("Bad expression");
-      next();
-      return e;
-    }
-    if (typeof t === "string" && FUNCS.has(t)) {
-      const name = next();
-      if (peek() !== "(") throw new Error("Bad " + name);
-      next();
-      const args = [parseExpr()];
-      while (peek() === ",") { next(); args.push(parseExpr()); }
-      if (peek() !== ")") throw new Error("Bad " + name);
-      next();
-      if (args.length !== 2) throw new Error(name + " needs exactly 2 args");
-      return { func: name, args };
-    }
-    if (isCompound(t) && t.kind === "convert") { next(); return { conv: t }; }
-    if (isNumber(t)) { next(); return { num: Number(t) }; }
-    throw new Error("Bad expression");
-  }
-
-  const ast = parseExpr();
-  if (pos !== ts.length) throw new Error("Bad expression");
-  return run(ast);
-}
-
-function run(n) {
-  if ("num" in n) return n.num;
-  if ("conv" in n) return runConvert(n.conv);
-  if (n.op === "neg") return -run(n.a);
-  if (n.op) {
-    const a = run(n.l), b = run(n.r);
-    switch (n.op) {
-      case "+": return a + b;
-      case "−": return a - b;
-      case "×": return a * b;
-      case "÷":
-        if (b === 0) throw new Error("÷ by zero");
-        return a / b;
-    }
-  }
-  if (n.func) {
-    const [a, b] = n.args.map(run);
-    switch (n.func) {
-      case "min": return Math.min(a, b);
-      case "max": return Math.max(a, b);
-      case "round": {
-        const f = Math.pow(10, Math.trunc(b));
-        return Math.round(a * f) / f;
-      }
-    }
-  }
-  throw new Error("Bad AST");
-}
-
-function runConvert(c) {
-  const rate = fxRate(c.fromCcy, c.toCcy);
-  const raw  = Number(c.amount) * rate;
-  const f    = Math.pow(10, Math.trunc(c.scale));
-  return Math.round(raw * f) / f;
-}
-
-/* ---- Convert popover --------------------------------------------- */
-
-function populateCcyDropdowns() {
-  const from = $("#conv-from"), to = $("#conv-to");
-  CURRENCIES.forEach(c => {
-    from.appendChild(el("option", { value: c }, c));
-    to.appendChild(el("option", { value: c }, c));
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    openEditPopover(arrPath, index);
   });
-  from.value = "USD";
-  to.value   = "INR";
+  return btn;
 }
 
-function openConvPopover() {
-  $("#conv-amount").value = "";
-  $("#conv-scale").value  = "2";
-  $("#conv-from").value   = "USD";
-  $("#conv-to").value     = "INR";
-  updateConvPreview();
-  $("#conv-scrim").hidden = false;
-  $("#conv-amount").focus();
+function makeDeco(text) {
+  const span = document.createElement("span");
+  span.className = "deco";
+  span.textContent = text;
+  return span;
 }
 
-function closeConvPopover() { $("#conv-scrim").hidden = true; }
-
-function readConvForm() {
-  const amount = $("#conv-amount").value;
-  if (amount === "" || isNaN(Number(amount))) return null;
-  return {
-    kind: "convert",
-    amount: Number(amount),
-    scale: Number($("#conv-scale").value),
-    fromCcy: $("#conv-from").value,
-    toCcy: $("#conv-to").value
-  };
+function makeInsPoint(arrPath, pos) {
+  const btn = document.createElement("button");
+  btn.className = "ins-point" + (isCursorAt(arrPath, pos) ? " active" : "");
+  btn.textContent = "+";
+  btn.title = "Place cursor here (toolbar inserts will go here)";
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    moveCursor(arrPath, pos);
+  });
+  return btn;
 }
 
-function updateConvPreview() {
-  const c = readConvForm();
-  const p = $("#conv-preview");
-  if (!c) { p.textContent = "Enter an amount to preview"; return; }
-  try {
-    const r = runConvert(c);
-    p.innerHTML = `${c.amount} ${c.fromCcy} → <strong>${r}</strong> ${c.toCcy} ` +
-                  `(scale ${c.scale})`;
-  } catch (e) {
-    p.innerHTML = `<span class="err">${e.message}</span>`;
+function makeArgSlot(arrPath, pos, label) {
+  const btn = document.createElement("button");
+  btn.className = "arg-slot" + (isCursorAt(arrPath, pos) ? " active" : "");
+  btn.textContent = "+ " + label;
+  btn.title = "Place cursor in this slot";
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    moveCursor(arrPath, pos);
+  });
+  return btn;
+}
+
+function makeDeleteHandle(arrPath, index, title) {
+  const btn = document.createElement("button");
+  btn.className = "delete-handle";
+  btn.textContent = "×";
+  btn.title = title;
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    const arr = getArr(arrPath);
+    arr.splice(index, 1);
+    state.cursor = { arrPath: [...arrPath], pos: index };
+    renderAll();
+  });
+  return btn;
+}
+
+/* ---- Render: text preview ---------------------------------------- */
+
+function renderTextPreview() {
+  $("#text-preview").textContent = state.items.length === 0
+    ? "—"
+    : toText(state.items);
+}
+
+function toText(items) {
+  return items.map(itemToText).join(" ");
+}
+function itemToText(item) {
+  if (item.kind === "op")  return OPS[item.op].symbol;
+  if (item.kind === "var") return item.label;
+  if (item.kind === "lit") return isNumericLit(item.value) ? item.value : `"${item.value}"`;
+  if (item.kind === "group") {
+    return "( " + (item.items.length === 0 ? "?" : toText(item.items)) + " )";
+  }
+  if (item.kind === "func") {
+    const argText = item.args
+      .map((a, i) => a.length === 0
+        ? (FUNC_ARG_LABELS[item.name]?.[i] || "?")
+        : toText(a))
+      .join(" , ");
+    return item.name + " ( " + argText + " )";
   }
 }
 
-function insertConvert() {
-  const c = readConvForm();
-  if (!c) return;
-  /* implicit × when inserting after a primary-ending token */
-  if (endsPrimary(last())) state.tokens.push("×");
-  state.tokens.push(c);
-  closeConvPopover();
-  redraw();
+/* ---- Parser: items[] -> AST tree --------------------------------- */
+
+function parseItems(items) {
+  if (items.length === 0) throw new Error("Empty expression");
+  const { node, pos } = parseExpr(items, 0);
+  if (pos !== items.length) throw new Error("Unexpected trailing items");
+  return node;
 }
 
-/* Wire the popover */
-populateCcyDropdowns();
-["conv-amount","conv-scale","conv-from","conv-to"]
-  .forEach(id => $("#" + id).addEventListener("input", updateConvPreview));
-$("#conv-cancel").addEventListener("click", closeConvPopover);
-$("#conv-insert").addEventListener("click", insertConvert);
-$("#conv-scrim").addEventListener("click", e => {
-  if (e.target.id === "conv-scrim") closeConvPopover();
+function parseExpr(items, pos) {
+  let { node: l, pos: p } = parseTerm(items, pos);
+  while (p < items.length) {
+    const t = items[p];
+    if (t.kind === "op" && (t.op === "add" || t.op === "subtract")) {
+      p++;
+      const { node: r, pos: np } = parseTerm(items, p);
+      l = { op: t.op, args: [l, r] };
+      p = np;
+    } else break;
+  }
+  return { node: l, pos: p };
+}
+
+function parseTerm(items, pos) {
+  let { node: l, pos: p } = parsePrimary(items, pos);
+  while (p < items.length) {
+    const t = items[p];
+    if (t.kind === "op" && (t.op === "multiply" || t.op === "divide")) {
+      p++;
+      const { node: r, pos: np } = parsePrimary(items, p);
+      l = { op: t.op, args: [l, r] };
+      p = np;
+    } else break;
+  }
+  return { node: l, pos: p };
+}
+
+function parsePrimary(items, pos) {
+  const t = items[pos];
+  if (!t) throw new Error("Expected a value");
+  if (t.kind === "op")    throw new Error(`Unexpected ${OPS[t.op].symbol}`);
+  if (t.kind === "var")   return { node: { var: t.id }, pos: pos + 1 };
+  if (t.kind === "lit")   return { node: { lit: t.value }, pos: pos + 1 };
+  if (t.kind === "group") {
+    if (t.items.length === 0) throw new Error("Empty group");
+    return { node: parseItems(t.items), pos: pos + 1 };
+  }
+  if (t.kind === "func") {
+    const argTrees = t.args.map((a, i) => {
+      if (a.length === 0) {
+        const lbl = FUNC_ARG_LABELS[t.name]?.[i] || `arg ${i + 1}`;
+        throw new Error(`Empty ${t.name} arg: ${lbl}`);
+      }
+      return parseItems(a);
+    });
+    return { node: { func: t.name, args: argTrees }, pos: pos + 1 };
+  }
+  throw new Error("Unexpected item");
+}
+
+/* ---- Serializer: AST -> spec JSON -------------------------------- */
+
+function toJSON(node) {
+  if ("var" in node) return "@" + node.var;
+  if ("lit" in node) return node.lit;
+  if ("op"  in node) return { [node.op]: node.args.map(toJSON) };
+  if ("func" in node) {
+    const vs = node.args.map(toJSON);
+    if (node.func === "convert") {
+      const [amount, scale, from, to] = vs;
+      return { convert: [amount, scale, "from", from, "to", to] };
+    }
+    return { [node.func]: vs };
+  }
+  throw new Error("Bad node");
+}
+
+/* ---- Render: output JSON + validation ---------------------------- */
+
+function renderOutput() {
+  const jsonEl = $("#output-json");
+  const vEl    = $("#validation");
+
+  if (state.items.length === 0) {
+    jsonEl.textContent = "{}";
+    vEl.textContent = "Formula is empty.";
+    vEl.className = "validation neutral";
+    return;
+  }
+  try {
+    const ast  = parseItems(state.items);
+    const json = toJSON(ast);
+    jsonEl.textContent = JSON.stringify({ formula: json }, null, 2);
+    vEl.textContent = "✓ Valid formula.";
+    vEl.className = "validation ok";
+  } catch (e) {
+    jsonEl.textContent = "// invalid";
+    vEl.textContent = "✗ " + e.message;
+    vEl.className = "validation err";
+  }
+}
+
+/* =====================================================================
+ * Item Details popover
+ * ===================================================================== */
+
+function pathContextLabel(arrPath) {
+  /* Friendly label like "round → Scale" describing where we're inserting. */
+  if (arrPath.length === 0) return "Top level";
+  let node = state.items;
+  let label = "Top level";
+  for (let i = 0; i < arrPath.length; i++) {
+    const step = arrPath[i];
+    if (step === "items") {
+      label = "inside ( … )";
+      node = node.items;     /* descend into the group's items array */
+      continue;
+    }
+    if (step === "args") {
+      const argIdx = arrPath[i + 1];
+      const funcName = node.name;
+      const slotName = FUNC_ARG_LABELS[funcName]?.[argIdx] || `arg ${argIdx + 1}`;
+      label = `${funcName} → ${slotName}`;
+      node = node.args[argIdx];
+      i++; /* skip the index we just consumed */
+      continue;
+    }
+    node = node[step];
+  }
+  return label;
+}
+
+function openInsertPopover(arrPath, pos, slotLabel = null) {
+  state.popover = {
+    open: true,
+    screen: "main",
+    editing: false,
+    arrPath, index: pos,
+    contextLabel: "Insert into " + pathContextLabel(arrPath) +
+                  (slotLabel ? ` (${slotLabel})` : ""),
+    draft: null
+  };
+  $("#var-search").value = "";
+  renderPopover();
+  setTimeout(() => $("#literal-input").focus(), 0);
+}
+
+function openEditPopover(arrPath, index) {
+  const item = getArr(arrPath)[index];
+  state.popover = {
+    open: true,
+    screen: "main",
+    editing: true,
+    arrPath, index,
+    contextLabel: "Edit item in " + pathContextLabel(arrPath),
+    draft: cloneItem(item)
+  };
+  $("#var-search").value = "";
+  renderPopover();
+}
+
+function closePopover() {
+  state.popover.open = false;
+  renderPopover();
+}
+
+function renderPopover() {
+  const p = state.popover;
+  $("#popover").hidden = !p.open;
+  if (!p.open) return;
+
+  $("#screen-main").hidden      = p.screen !== "main";
+  $("#screen-variables").hidden = p.screen !== "variables";
+  $("#screen-functions").hidden = p.screen !== "functions";
+  $("#back-btn").hidden         = p.screen === "main";
+
+  $("#popover-title").textContent =
+    p.screen === "variables" ? "Select a Variable" :
+    p.screen === "functions" ? "Select a Function" :
+    (p.editing ? "Edit Item" : "Item Details");
+  $("#popover-context").textContent = p.contextLabel;
+
+  /* quick-strip highlight */
+  $$(".quick").forEach(b => b.classList.remove("active"));
+  const d = p.draft;
+  if (d) {
+    if (d.kind === "op") {
+      $(`.quick[data-quick="op"][data-op="${d.op}"]`)?.classList.add("active");
+    } else if (d.kind === "group") {
+      $(`.quick[data-quick="group"]`)?.classList.add("active");
+    }
+  }
+
+  /* literal input pre-fill */
+  $("#literal-input").value = (d && d.kind === "lit") ? d.value : "";
+
+  /* footer state */
+  $("#ok-btn").disabled = d === null;
+  $("#delete-btn").hidden = !p.editing;
+
+  renderVarList();
+  renderFuncList();
+}
+
+function renderVarList() {
+  const list = $("#var-list");
+  list.innerHTML = "";
+  const q = $("#var-search").value.toLowerCase();
+  const d = state.popover.draft;
+
+  const filtered = VARIABLES.filter(vr =>
+    vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q)
+  );
+
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.padding = "16px";
+    empty.style.color = "var(--muted)";
+    empty.textContent = "No variables match.";
+    list.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(vr => {
+    const btn = document.createElement("button");
+    btn.className = "picker-item";
+    if (d && d.kind === "var" && d.id === vr.id) btn.classList.add("active");
+    const title = document.createElement("span");
+    title.className = "picker-title";
+    title.textContent = vr.label;
+    const sub = document.createElement("span");
+    sub.className = "picker-sub";
+    sub.textContent = vr.id + (vr.unit ? " · " + vr.unit : "");
+    btn.appendChild(title); btn.appendChild(sub);
+    btn.addEventListener("click", () => {
+      state.popover.draft = { kind: "var", id: vr.id, label: vr.label };
+      renderPopover();
+    });
+    list.appendChild(btn);
+  });
+}
+
+function renderFuncList() {
+  const list = $("#func-list");
+  list.innerHTML = "";
+  const d = state.popover.draft;
+  FUNCTIONS.forEach(f => {
+    const btn = document.createElement("button");
+    btn.className = "picker-item";
+    if (d && d.kind === "func" && d.name === f.name) btn.classList.add("active");
+    const title = document.createElement("span");
+    title.className = "picker-title";
+    title.textContent = f.label;
+    const sub = document.createElement("span");
+    sub.className = "picker-sub";
+    sub.textContent = f.signature;
+    btn.appendChild(title); btn.appendChild(sub);
+    btn.addEventListener("click", () => {
+      state.popover.draft = { kind: "func", name: f.name };
+      renderPopover();
+    });
+    list.appendChild(btn);
+  });
+}
+
+/* ---- Popover wiring ---------------------------------------------- */
+
+$$(".quick").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const q = btn.dataset.quick;
+    if (q === "op")          state.popover.draft = { kind: "op", op: btn.dataset.op };
+    else if (q === "group")  state.popover.draft = { kind: "group", items: [] };
+    $("#literal-input").value = "";
+    renderPopover();
+  });
 });
 
-renderKeypad();
-redraw();
+$("#literal-input").addEventListener("input", e => {
+  const val = e.target.value;
+  if (val === "") {
+    if (state.popover.draft && state.popover.draft.kind === "lit") {
+      state.popover.draft = null;
+    }
+  } else {
+    state.popover.draft = { kind: "lit", value: val };
+  }
+  $("#ok-btn").disabled = state.popover.draft === null;
+  $$(".quick").forEach(b => b.classList.remove("active"));
+});
+
+$$("[data-goto]").forEach(b => {
+  b.addEventListener("click", () => {
+    state.popover.screen = b.dataset.goto;
+    renderPopover();
+  });
+});
+
+$("#back-btn").addEventListener("click", () => {
+  state.popover.screen = "main";
+  renderPopover();
+});
+
+$("#var-search").addEventListener("input", renderVarList);
+
+$("#ok-btn").addEventListener("click", () => {
+  const p = state.popover;
+  if (!p.draft) return;
+  const arr = getArr(p.arrPath);
+
+  /* For freshly-picked funcs and groups, materialise their empty children. */
+  let toInsert = cloneItem(p.draft);
+  if (toInsert.kind === "func") {
+    toInsert.args = Array.from({ length: FUNC_ARITY[toInsert.name] }, () => []);
+  } else if (toInsert.kind === "group") {
+    toInsert.items = [];
+  }
+
+  if (p.editing) {
+    /* Special case: editing a func and replacing with another func — keep
+       args, adjusting arity. */
+    const old = arr[p.index];
+    if (old.kind === "func" && toInsert.kind === "func") {
+      const newArity = FUNC_ARITY[toInsert.name];
+      toInsert.args = Array.from({ length: newArity }, (_, i) => old.args[i] || []);
+    }
+    /* Editing a group and replacing with another group — keep items. */
+    if (old.kind === "group" && toInsert.kind === "group") {
+      toInsert.items = old.items;
+    }
+    arr[p.index] = toInsert;
+    state.cursor = { arrPath: [...p.arrPath], pos: p.index + 1 };
+  } else {
+    arr.splice(p.index, 0, toInsert);
+    state.cursor = { arrPath: [...p.arrPath], pos: p.index + 1 };
+  }
+  closePopover();
+  renderAll();
+});
+
+$("#cancel-btn").addEventListener("click", closePopover);
+
+$("#delete-btn").addEventListener("click", () => {
+  if (!state.popover.editing) return;
+  const arr = getArr(state.popover.arrPath);
+  arr.splice(state.popover.index, 1);
+  state.cursor = { arrPath: [...state.popover.arrPath], pos: state.popover.index };
+  closePopover();
+  renderAll();
+});
+
+$("#popover").addEventListener("click", e => {
+  if (e.target.id === "popover") closePopover();
+});
+
+/* =====================================================================
+ * Insert toolbar (single-click inserts at cursor)
+ * ===================================================================== */
+
+function renderVarDropdown() {
+  const list = $("#tb-var-list");
+  list.innerHTML = "";
+  const q = $("#tb-var-search").value.toLowerCase();
+  const filtered = VARIABLES.filter(vr =>
+    vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q)
+  );
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "padding: 10px; color: var(--muted); font-size: 12px;";
+    empty.textContent = "No variables match.";
+    list.appendChild(empty);
+    return;
+  }
+  filtered.forEach(vr => {
+    const btn = document.createElement("button");
+    btn.className = "tb-dd-item";
+    const nm = document.createElement("span");
+    nm.className = "name"; nm.textContent = vr.label;
+    const sub = document.createElement("span");
+    sub.className = "sub"; sub.textContent = vr.id + (vr.unit ? " · " + vr.unit : "");
+    btn.appendChild(nm); btn.appendChild(sub);
+    btn.addEventListener("click", () => {
+      insertAtCursor({ kind: "var", id: vr.id, label: vr.label });
+    });
+    list.appendChild(btn);
+  });
+}
+
+function renderFuncDropdown() {
+  const list = $("#tb-func-list");
+  list.innerHTML = "";
+  FUNCTIONS.forEach(f => {
+    const btn = document.createElement("button");
+    btn.className = "tb-dd-item";
+    const nm = document.createElement("span");
+    nm.className = "name"; nm.textContent = f.label;
+    const sub = document.createElement("span");
+    sub.className = "sub"; sub.textContent = f.signature;
+    btn.appendChild(nm); btn.appendChild(sub);
+    btn.addEventListener("click", () => {
+      const arity = FUNC_ARITY[f.name];
+      insertAtCursor({
+        kind: "func",
+        name: f.name,
+        args: Array.from({ length: arity }, () => [])
+      });
+    });
+    list.appendChild(btn);
+  });
+}
+
+/* Operator buttons */
+$$('[data-tb="op"]').forEach(btn => {
+  btn.addEventListener("click", () => {
+    insertAtCursor({ kind: "op", op: btn.dataset.op });
+  });
+});
+
+/* Group button */
+$('[data-tb="group"]').addEventListener("click", () => {
+  insertAtCursor({ kind: "group", items: [] });
+});
+
+/* Variable dropdown */
+$("#tb-var-btn").addEventListener("click", e => {
+  e.stopPropagation();
+  const wasOpen = !$("#tb-var-panel").hidden;
+  closeDropdowns();
+  if (!wasOpen) {
+    $("#tb-var-search").value = "";
+    renderVarDropdown();
+    $("#tb-var-panel").hidden = false;
+    setTimeout(() => $("#tb-var-search").focus(), 0);
+  }
+});
+$("#tb-var-search").addEventListener("input", renderVarDropdown);
+$("#tb-var-panel").addEventListener("click", e => e.stopPropagation());
+
+/* Function dropdown */
+$("#tb-func-btn").addEventListener("click", e => {
+  e.stopPropagation();
+  const wasOpen = !$("#tb-func-panel").hidden;
+  closeDropdowns();
+  if (!wasOpen) {
+    renderFuncDropdown();
+    $("#tb-func-panel").hidden = false;
+  }
+});
+$("#tb-func-panel").addEventListener("click", e => e.stopPropagation());
+
+/* Literal input */
+function commitLiteral() {
+  const val = $("#tb-lit-input").value.trim();
+  if (!val) return;
+  insertAtCursor({ kind: "lit", value: val });
+  $("#tb-lit-input").value = "";
+}
+$("#tb-lit-add").addEventListener("click", commitLiteral);
+$("#tb-lit-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); commitLiteral(); }
+});
+
+/* Close dropdowns on outside click / Escape */
+document.addEventListener("click", e => {
+  if (!e.target.closest(".tb-dropdown")) closeDropdowns();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeDropdowns();
+});
+
+/* ---- Toolbar wiring ---------------------------------------------- */
+
+const presetSel = $("#preset-select");
+Object.entries(PRESETS).forEach(([key, pre]) => {
+  const o = document.createElement("option");
+  o.value = key;
+  o.textContent = pre.label;
+  presetSel.appendChild(o);
+});
+presetSel.addEventListener("change", e => {
+  const key = e.target.value;
+  if (!key) return;
+  state.items = PRESETS[key].items.map(cloneItem);
+  state.cursor = { arrPath: [], pos: state.items.length };
+  e.target.value = "";
+  renderAll();
+});
+
+$("#clear-btn").addEventListener("click", () => {
+  state.items = [];
+  state.cursor = { arrPath: [], pos: 0 };
+  renderAll();
+});
+
+/* ---- Top level --------------------------------------------------- */
+
+function renderAll() {
+  renderPillRow();
+  renderTextPreview();
+  renderOutput();
+}
+
+renderAll();
 </script>
 </body>
 </html>
