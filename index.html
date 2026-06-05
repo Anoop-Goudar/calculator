@@ -353,6 +353,27 @@
     line-height: 1.55;
   }
 
+  /* ===== Collapsible card header ===== */
+  .collapse-btn {
+    font: inherit; font-size: 13px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--muted);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .collapse-btn:hover {
+    border-color: var(--line); background: white; color: var(--ink);
+  }
+  .collapse-btn .chev {
+    transition: transform 0.18s ease;
+    display: inline-block;
+    font-size: 11px;
+  }
+  .collapse-btn[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+
   /* ===== Saved formulas table ===== */
   .saved-table {
     width: 100%;
@@ -676,9 +697,16 @@
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Saved JSON</h2></div>
-    <div class="validation neutral" id="validation">Formula is empty.</div>
-    <pre class="json" id="output-json">{}</pre>
+    <div class="card-head">
+      <h2>Saved JSON</h2>
+      <button class="collapse-btn" id="json-toggle" aria-expanded="true" title="Toggle JSON panel">
+        <span class="chev">▾</span>
+      </button>
+    </div>
+    <div id="json-body">
+      <div class="validation neutral" id="validation">Formula is empty.</div>
+      <pre class="json" id="output-json">{}</pre>
+    </div>
   </section>
 
   <section class="card">
@@ -1830,6 +1858,21 @@ function renderAll() {
 
 renderAll();
 renderSavedTable();
+
+/* Saved JSON collapse toggle (persisted) */
+const JSON_COLLAPSED_KEY = "calc_builder.json_collapsed";
+function setJsonCollapsed(collapsed) {
+  $("#json-body").hidden = collapsed;
+  $("#json-toggle").setAttribute("aria-expanded", String(!collapsed));
+  try { localStorage.setItem(JSON_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch {}
+}
+$("#json-toggle").addEventListener("click", () => {
+  const expanded = $("#json-toggle").getAttribute("aria-expanded") === "true";
+  setJsonCollapsed(expanded);
+});
+try {
+  setJsonCollapsed(localStorage.getItem(JSON_COLLAPSED_KEY) === "1");
+} catch { /* default expanded */ }
 </script>
 </body>
 </html>
