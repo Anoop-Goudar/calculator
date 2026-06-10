@@ -803,6 +803,7 @@
       <div class="tb-grp">
         <span class="tb-lit-lbl">Literal</span>
         <input class="tb-lit-input" id="tb-lit-input" type="text" placeholder="number or text" />
+        <select class="tb-lit-input" id="tb-lit-currency" hidden></select>
         <button class="tb-btn" id="tb-lit-add">Add</button>
       </div>
     </div>
@@ -928,6 +929,7 @@
         <label class="literal-label" for="literal-input">Literal</label>
         <input class="literal-input" id="literal-input" type="text"
                placeholder="Enter a number or text" />
+        <select class="literal-input" id="literal-currency" hidden></select>
       </div>
 
       <div class="category-list">
@@ -1161,6 +1163,28 @@ const $$ = sel => document.querySelectorAll(sel);
 
 function isNumericLit(s) { return /^-?\d+(\.\d+)?$/.test(s); }
 function cloneItem(it)   { return JSON.parse(JSON.stringify(it)); }
+
+/* Populate a <select> with the CURRENCIES list, pre-selecting `selected`.
+   If selected value isn't in list, it's prepended as an option. */
+function populateCurrencySelect(sel, selected) {
+  const codes = CURRENCIES.map(c => c.code);
+  const list = codes.includes(selected)
+    ? CURRENCIES
+    : [{ code: selected, label: selected }, ...CURRENCIES];
+  /* Only rebuild DOM if options have changed (e.g. exotic code prepended) */
+  const needsRebuild = sel.options.length !== list.length ||
+    (sel.options[0] && sel.options[0].value !== list[0].code);
+  if (needsRebuild) {
+    sel.innerHTML = "";
+    list.forEach(c => {
+      const o = document.createElement("option");
+      o.value = c.code;
+      o.textContent = c.code + " – " + c.label;
+      sel.appendChild(o);
+    });
+  }
+  sel.value = selected;
+}
 
 function getArr(arrPath) {
   let n = state.items;
@@ -1684,7 +1708,19 @@ function renderPopover() {
   }
 
   /* literal input pre-fill */
-  $("#literal-input").value = (d && d.kind === "lit") ? d.value : "";
+  const isCurrencyRule = rule === "currency";
+  $("#literal-input").hidden    = isCurrencyRule;
+  $("#literal-currency").hidden = !isCurrencyRule;
+  if (isCurrencyRule) {
+    const currentVal = (d && d.kind === "lit") ? d.value : CURRENCIES[0].code;
+    populateCurrencySelect($("#literal-currency"), currentVal);
+    /* ensure draft reflects the select's value */
+    if (!d || d.kind !== "lit") {
+      state.popover.draft = { kind: "lit", value: $("#literal-currency").value };
+    }
+  } else {
+    $("#literal-input").value = (d && d.kind === "lit") ? d.value : "";
+  }
 
   /* footer state */
   $("#ok-btn").disabled = d === null ||
@@ -1692,11 +1728,10 @@ function renderPopover() {
   $("#delete-btn").hidden = !p.editing;
   $("#literal-input").placeholder =
     rule === "number" ? "Enter a number" :
-    rule === "currency" ? "Enter a currency, e.g. USD" :
     rule === "decimal-points" ? "Enter a non-negative integer" :
     rule === "rate-type" ? "BENCHMARK" :
     "Literal values are not allowed here";
-  $("#literal-input").disabled = rule === "amount";
+  $("#literal-input").disabled = rule === "amount" || isCurrencyRule;
   $$(".quick").forEach(btn => {
     const candidate = btn.dataset.quick === "op"
       ? { kind: "op", op: btn.dataset.op }
@@ -1805,6 +1840,15 @@ $("#literal-input").addEventListener("input", e => {
       ? canUseItem(state.popover.draft, rule)
       : canInsertAtPath(state.popover.draft, state.popover.arrPath));
   $$(".quick").forEach(b => b.classList.remove("active"));
+});
+
+/* Popover currency select */
+$("#literal-currency").addEventListener("change", e => {
+  state.popover.draft = { kind: "lit", value: e.target.value };
+  const rule = expectedRuleForPath(state.popover.arrPath);
+  $("#ok-btn").disabled = !(state.popover.editing
+    ? canUseItem(state.popover.draft, rule)
+    : canInsertAtPath(state.popover.draft, state.popover.arrPath));
 });
 
 $$("[data-goto]").forEach(b => {
@@ -1975,25 +2019,34 @@ $("#tb-func-panel").addEventListener("click", e => e.stopPropagation());
 
 /* Literal input */
 function commitLiteral() {
-  const val = $("#tb-lit-input").value.trim();
-  if (!val) return;
-  const input = $("#tb-lit-input");
-  const item = { kind: "lit", value: val };
   const rule = expectedRuleForPath(state.cursor.arrPath);
+  const isCurrencySlot = rule === "currency";
+  const val = isCurrencySlot
+    ? $("#tb-lit-currency").value
+    : $("#tb-lit-input").value.trim();
+  if (!val) return;
+  const item = { kind: "lit", value: val };
   if (!canInsertAtPath(item, state.cursor.arrPath)) {
-    input.setCustomValidity(`Expected ${ruleDescription(rule)}.`);
-    input.reportValidity();
+    if (!isCurrencySlot) {
+      const input = $("#tb-lit-input");
+      input.setCustomValidity(`Expected ${ruleDescription(rule)}.`);
+      input.reportValidity();
+    }
     return;
   }
-  input.setCustomValidity("");
+  if (!isCurrencySlot) $("#tb-lit-input").setCustomValidity("");
   insertAtCursor(item);
-  $("#tb-lit-input").value = "";
+  if (!isCurrencySlot) $("#tb-lit-input").value = "";
 }
 $("#tb-lit-add").addEventListener("click", commitLiteral);
 $("#tb-lit-input").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); commitLiteral(); }
 });
 $("#tb-lit-input").addEventListener("input", e => e.target.setCustomValidity(""));
+/* Toolbar currency select — insert immediately on change */
+$("#tb-lit-currency").addEventListener("change", () => {
+  commitLiteral();
+});
 
 /* Close dropdowns on outside click / Escape */
 document.addEventListener("click", e => {
@@ -2321,18 +2374,7 @@ function renderUseItem(item, key, rule = "number") {
       sel.className = "currency-override";
       const stored = useState.overrides[key];
       const current = stored !== undefined ? stored : item.value;
-      /* Add all known currencies; if saved value isn't in the list, prepend it */
-      const codes = CURRENCIES.map(c => c.code);
-      const allOptions = codes.includes(current)
-        ? CURRENCIES
-        : [{ code: current, label: current }, ...CURRENCIES];
-      allOptions.forEach(c => {
-        const o = document.createElement("option");
-        o.value = c.code;
-        o.textContent = c.code + " – " + c.label;
-        if (c.code === current) o.selected = true;
-        sel.appendChild(o);
-      });
+      populateCurrencySelect(sel, current);
       sel.addEventListener("change", () => {
         useState.overrides[key] = sel.value;
         const entry = state.saved.find(e => e.id === useState.id);
@@ -2439,11 +2481,17 @@ function renderToolbarState() {
     { kind: "lit", value: rule === "rate-type" ? "BENCHMARK" : "1" },
     state.cursor.arrPath
   );
-  $("#tb-lit-input").disabled = !literalAllowed;
+  const isCurrencySlot = rule === "currency";
+  $("#tb-lit-input").hidden    = isCurrencySlot;
+  $("#tb-lit-currency").hidden = !isCurrencySlot;
+  $("#tb-lit-input").disabled    = !literalAllowed || isCurrencySlot;
+  $("#tb-lit-currency").disabled = !literalAllowed || !isCurrencySlot;
   $("#tb-lit-add").disabled = !literalAllowed;
+  if (isCurrencySlot) {
+    populateCurrencySelect($("#tb-lit-currency"), $("#tb-lit-currency").value || CURRENCIES[0].code);
+  }
   $("#tb-lit-input").placeholder =
     rule === "number" ? "number" :
-    rule === "currency" ? "currency code" :
     rule === "decimal-points" ? "whole number" :
     rule === "rate-type" ? "BENCHMARK" :
     "not allowed";
