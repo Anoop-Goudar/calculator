@@ -2245,17 +2245,17 @@ function renderUseOutput(baseItems) {
   }
 }
 
-function renderUseItemsArray(items, pathPrefix) {
+function renderUseItemsArray(items, pathPrefix, rule = "number") {
   const wrap = document.createElement("span");
   wrap.className = "items-wrap";
   items.forEach((item, i) => {
     const key = pathPrefix.length ? pathPrefix + "." + i : String(i);
-    wrap.appendChild(renderUseItem(item, key));
+    wrap.appendChild(renderUseItem(item, key, rule));
   });
   return wrap;
 }
 
-function renderUseItem(item, key) {
+function renderUseItem(item, key, rule = "number") {
   if (item.kind === "op") {
     const s = document.createElement("span");
     s.className = "pill-ro pill-ro-op";
@@ -2269,7 +2269,18 @@ function renderUseItem(item, key) {
     return s;
   }
   if (item.kind === "lit") {
-    /* Editable input */
+    /* Only make literals editable when they are plain numbers or decimal-points.
+       Currency codes, rate-type (BENCHMARK), and amount-slot literals are
+       structural constants — render them as read-only pills. */
+    const editable = rule === "number" || rule === "decimal-points";
+    if (!editable) {
+      const s = document.createElement("span");
+      s.className = "pill-ro";
+      s.style.cssText = "background:var(--pill-lit-bg);color:var(--pill-lit-ink);font-family:'SF Mono',Menlo,monospace;border:1px solid var(--line-soft);";
+      s.textContent = item.value;
+      return s;
+    }
+    /* Editable numeric input */
     const input = document.createElement("input");
     input.type = "text";
     input.className = "lit-override";
@@ -2279,10 +2290,8 @@ function renderUseItem(item, key) {
     input.title = "Edit literal value";
     input.addEventListener("input", () => {
       useState.overrides[key] = input.value;
-      /* validate immediately */
       const entry = state.saved.find(e => e.id === useState.id);
       if (entry) renderUseOutput(entry.items);
-      /* highlight invalid */
       input.classList.toggle("invalid", input.value.trim() === "");
     });
     return input;
@@ -2292,7 +2301,7 @@ function renderUseItem(item, key) {
     wrap.className = "group-wrap";
     wrap.style.cursor = "default";
     wrap.appendChild(makeDeco("("));
-    wrap.appendChild(renderUseItemsArray(item.items, key + ".items"));
+    wrap.appendChild(renderUseItemsArray(item.items, key + ".items", "number"));
     wrap.appendChild(makeDeco(")"));
     return wrap;
   }
@@ -2305,9 +2314,11 @@ function renderUseItem(item, key) {
     nameSpan.textContent = item.name;
     wrap.appendChild(nameSpan);
     wrap.appendChild(makeDeco("("));
+    const funcDef = FUNCTION_BY_NAME[item.name];
     item.args.forEach((arg, ai) => {
       if (ai > 0) wrap.appendChild(makeDeco(","));
-      wrap.appendChild(renderUseItemsArray(arg, key + ".args." + ai));
+      const argRule = funcDef?.args[ai]?.rule || "number";
+      wrap.appendChild(renderUseItemsArray(arg, key + ".args." + ai, argRule));
     });
     wrap.appendChild(makeDeco(")"));
     return wrap;
