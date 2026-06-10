@@ -702,6 +702,23 @@
     color: var(--err);
   }
 
+  /* Currency select in Use panel */
+  .currency-override {
+    font: inherit; font-size: 13px;
+    font-family: "SF Mono", Menlo, monospace;
+    color: var(--pill-lit-ink);
+    background: var(--pill-lit-bg);
+    border: 1px solid #9ca3af;
+    border-radius: 6px;
+    padding: 4px 6px;
+    margin: 2px 1px;
+    cursor: pointer;
+  }
+  .currency-override:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+    background: white;
+  }
   /* Read-only pill (non-lit items in Use panel) */
   .pill-ro {
     font: inherit; font-size: 14px;
@@ -993,6 +1010,29 @@ const OPS = {
   multiply: { symbol: "×", precedence: 2 },
   divide:   { symbol: "÷", precedence: 2 }
 };
+
+const CURRENCIES = [
+  { code: "USD", label: "US Dollar" },
+  { code: "EUR", label: "Euro" },
+  { code: "GBP", label: "British Pound" },
+  { code: "INR", label: "Indian Rupee" },
+  { code: "JPY", label: "Japanese Yen" },
+  { code: "AUD", label: "Australian Dollar" },
+  { code: "CAD", label: "Canadian Dollar" },
+  { code: "CHF", label: "Swiss Franc" },
+  { code: "CNY", label: "Chinese Yuan" },
+  { code: "SGD", label: "Singapore Dollar" },
+  { code: "AED", label: "UAE Dirham" },
+  { code: "HKD", label: "Hong Kong Dollar" },
+  { code: "SEK", label: "Swedish Krona" },
+  { code: "NOK", label: "Norwegian Krone" },
+  { code: "MXN", label: "Mexican Peso" },
+  { code: "BRL", label: "Brazilian Real" },
+  { code: "ZAR", label: "South African Rand" },
+  { code: "KRW", label: "South Korean Won" },
+  { code: "IDR", label: "Indonesian Rupiah" },
+  { code: "TRY", label: "Turkish Lira" }
+];
 
 const FUNCTIONS = [
   {
@@ -2270,9 +2310,37 @@ function renderUseItem(item, key, rule = "number") {
   }
   if (item.kind === "lit") {
     /* Only make literals editable when they are plain numbers or decimal-points.
-       Currency codes, rate-type (BENCHMARK), and amount-slot literals are
-       structural constants — render them as read-only pills. */
+       Currency codes get a dropdown. Rate-type (BENCHMARK) and amount-slot
+       literals are structural constants — render them as read-only pills. */
     const editable = rule === "number" || rule === "decimal-points";
+    const isCurrency = rule === "currency";
+
+    if (isCurrency) {
+      /* Currency dropdown */
+      const sel = document.createElement("select");
+      sel.className = "currency-override";
+      const stored = useState.overrides[key];
+      const current = stored !== undefined ? stored : item.value;
+      /* Add all known currencies; if saved value isn't in the list, prepend it */
+      const codes = CURRENCIES.map(c => c.code);
+      const allOptions = codes.includes(current)
+        ? CURRENCIES
+        : [{ code: current, label: current }, ...CURRENCIES];
+      allOptions.forEach(c => {
+        const o = document.createElement("option");
+        o.value = c.code;
+        o.textContent = c.code + " – " + c.label;
+        if (c.code === current) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", () => {
+        useState.overrides[key] = sel.value;
+        const entry = state.saved.find(e => e.id === useState.id);
+        if (entry) renderUseOutput(entry.items);
+      });
+      return sel;
+    }
+
     if (!editable) {
       const s = document.createElement("span");
       s.className = "pill-ro";
@@ -2280,6 +2348,7 @@ function renderUseItem(item, key, rule = "number") {
       s.textContent = item.value;
       return s;
     }
+
     /* Editable numeric input */
     const input = document.createElement("input");
     input.type = "text";
