@@ -52,12 +52,24 @@
   header.top p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 
   main {
-    max-width: 1100px;
+    max-width: 1400px;
     margin: 24px auto;
     padding: 0 16px;
     display: grid;
     gap: 16px;
   }
+
+  /* ===== Two-column layout ===== */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+  .col { display: grid; gap: 16px; }
   .card {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -265,6 +277,12 @@
     gap: 4px;
   }
   .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tb-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    border-color: var(--line);
+    color: var(--muted);
+  }
   .tb-btn.op    { font-size: 16px; color: var(--pill-op-ink); }
   .tb-btn.op:hover { border-color: var(--pill-op-ink); color: var(--pill-op-ink); }
   .tb-btn.paren { color: var(--pill-paren-ink); }
@@ -314,6 +332,7 @@
     width: 120px;
   }
   .tb-lit-input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .tb-lit-input:disabled { background: #f3f4f6; color: var(--muted); }
 
   /* Text preview */
   .text-preview-row {
@@ -570,6 +589,7 @@
   }
   .category:last-child { border-bottom: none; }
   .category:hover { background: #f8fafc; }
+  .category:disabled { opacity: 0.42; cursor: not-allowed; }
   .category-icon {
     width: 28px; height: 28px;
     background: #f3f4f6; border-radius: 6px;
@@ -637,16 +657,93 @@
     color: var(--err); border-color: transparent;
   }
   .popover-footer button.danger:hover { background: #fef2f2; border-color: #fecaca; color: var(--err); }
+
+  /* ===== Use panel ===== */
+  .use-formula-select {
+    font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: white; padding: 7px 10px;
+    width: 100%; cursor: pointer; color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .use-formula-select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  /* Read-only pill row for Use panel */
+  .pill-row-ro {
+    display: flex; flex-wrap: wrap; align-items: center;
+    min-height: 56px;
+    padding: 12px 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: #fafbfd;
+  }
+
+  /* Lit override inline input */
+  .lit-override {
+    font: inherit; font-size: 13px;
+    font-family: "SF Mono", Menlo, monospace;
+    color: var(--pill-lit-ink);
+    background: var(--pill-lit-bg);
+    border: 1px solid #9ca3af;
+    border-radius: 6px;
+    padding: 4px 8px;
+    margin: 2px 1px;
+    width: 90px;
+    min-width: 60px;
+  }
+  .lit-override:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+    background: white;
+  }
+  .lit-override.invalid {
+    border-color: var(--err);
+    background: var(--err-soft);
+    color: var(--err);
+  }
+
+  /* Read-only pill (non-lit items in Use panel) */
+  .pill-ro {
+    font: inherit; font-size: 14px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    margin: 2px 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: default; user-select: none;
+  }
+  .pill-ro-var  { color: var(--pill-var-ink);  background: var(--pill-var-bg);  font-weight: 600; }
+  .pill-ro-func { color: var(--pill-func-ink); background: var(--pill-func-bg); font-weight: 600; }
+  .pill-ro-op   { color: var(--pill-op-ink);   font-weight: 700; padding: 6px 8px; }
+
+  .use-empty { color: var(--muted); font-style: italic; padding: 6px 4px; }
+
+  .use-output-row {
+    margin-top: 14px;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+  }
+  .use-output-row .lbl {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted);
+    margin-bottom: 6px; display: block;
+  }
 </style>
 </head>
 <body>
 
 <header class="top">
   <h1>Calculation Builder</h1>
-  <p>Build a fee/calculation formula by inserting items. Operators, variables, and functions are all picked from constrained lists — no free-text expressions.</p>
+  <p>Build and save formulas on the left. Select a saved formula on the right to fill in literal values.</p>
 </header>
 
 <main>
+  <div class="two-col">
+
+    <!-- ===== LEFT: Builder col ===== -->
+    <div class="col">
+
   <section class="card">
     <div class="card-head">
       <h2>Formula</h2>
@@ -737,9 +834,38 @@
       <li>Picking a function or <code>( )</code> auto-drills the cursor into its first arg so you can keep typing left-to-right.</li>
       <li>Click any pill to edit or replace it. Hover a function/group to reveal an <strong>×</strong> that deletes it whole.</li>
       <li>Commas are structural — they appear automatically between function args, you never type them.</li>
-      <li>Saved JSON updates live; variables emit as <code>"@id"</code>, literals stay as raw strings.</li>
+      <li>Choices are filtered by argument type. Numeric expressions accept numeric literals, numeric variables, and number-returning functions.</li>
+      <li>Saved JSON updates live; variables emit as <code>"@id"</code> and validated literals stay as raw strings.</li>
     </ul>
   </section>
+
+    </div><!-- /left col -->
+
+    <!-- ===== RIGHT: Use col ===== -->
+    <div class="col">
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Use formula</h2>
+    </div>
+    <select class="use-formula-select" id="use-formula-select">
+      <option value="">Select a saved formula…</option>
+    </select>
+
+    <div class="pill-row-ro" id="use-pill-row">
+      <span class="use-empty">Select a formula above to get started</span>
+    </div>
+
+    <div class="use-output-row" id="use-output-row" hidden>
+      <span class="lbl">Result JSON</span>
+      <div class="validation neutral" id="use-validation">—</div>
+      <pre class="json" id="use-output-json">{}</pre>
+    </div>
+  </section>
+
+    </div><!-- /right col -->
+
+  </div><!-- /two-col -->
 </main>
 
 <!-- ===== Save modal ===== -->
@@ -856,7 +982,9 @@ const VARIABLES = [
   { id: "tenure_months",      label: "Tenure",             type: "number", unit: "months" },
   { id: "transaction_amount", label: "Transaction amount", type: "number", unit: "₹" },
   { id: "fee_floor",          label: "Minimum fee",        type: "number", unit: "₹" },
-  { id: "fee_ceiling",        label: "Maximum fee",        type: "number", unit: "₹" }
+  { id: "fee_ceiling",        label: "Maximum fee",        type: "number", unit: "₹" },
+  { id: "source_currency",     label: "Source currency",    type: "currency" },
+  { id: "target_currency",     label: "Target currency",    type: "currency" }
 ];
 
 const OPS = {
@@ -867,18 +995,45 @@ const OPS = {
 };
 
 const FUNCTIONS = [
-  { name: "min",     label: "Min",     signature: "min ( Expression , Expression )" },
-  { name: "max",     label: "Max",     signature: "max ( Expression , Expression )" },
-  { name: "round",   label: "Round",   signature: "round ( Expression , Scale )" },
-  { name: "convert", label: "Convert", signature: "convert ( Amount , Scale , From , To )" }
+  {
+    name: "min", label: "Min", returnType: "number",
+    args: [
+      { label: "Expression", rule: "number" },
+      { label: "Expression", rule: "number" }
+    ]
+  },
+  {
+    name: "max", label: "Max", returnType: "number",
+    args: [
+      { label: "Expression", rule: "number" },
+      { label: "Expression", rule: "number" }
+    ]
+  },
+  {
+    name: "round", label: "Round", returnType: "number",
+    args: [
+      { label: "Expression", rule: "number" },
+      { label: "Decimal points", rule: "decimal-points" }
+    ]
+  },
+  {
+    name: "convert", label: "Convert", returnType: "number",
+    args: [
+      { label: "Amount", rule: "amount" },
+      { label: "From currency", rule: "currency" },
+      { label: "To currency", rule: "currency" },
+      { label: "Rate type", rule: "rate-type" }
+    ]
+  }
 ];
 
-const FUNC_ARG_LABELS = {
-  min:     ["Expression", "Expression"],
-  max:     ["Expression", "Expression"],
-  round:   ["Expression", "Scale"],
-  convert: ["Amount", "Scale", "From", "To"]
-};
+const FUNCTION_BY_NAME = Object.fromEntries(FUNCTIONS.map(f => [f.name, f]));
+FUNCTIONS.forEach(f => {
+  f.signature = `${f.name} ( ${f.args.map(a => a.label).join(" , ")} )`;
+});
+const FUNC_ARG_LABELS = Object.fromEntries(
+  FUNCTIONS.map(f => [f.name, f.args.map(a => a.label)])
+);
 const FUNC_ARITY = Object.fromEntries(
   Object.entries(FUNC_ARG_LABELS).map(([k, v]) => [k, v.length])
 );
@@ -932,9 +1087,9 @@ const PRESETS = {
     items: [
       fn("convert", [
         [ v("transaction_amount") ],
-        [ lit("2") ],
         [ lit("USD") ],
-        [ lit("INR") ]
+        [ lit("INR") ],
+        [ lit("BENCHMARK") ]
       ]),
       op("multiply"),
       lit("0.015")
@@ -973,6 +1128,102 @@ function getArr(arrPath) {
   return n;
 }
 
+function variableById(id) {
+  return VARIABLES.find(vr => vr.id === id);
+}
+
+function expectedRuleForPath(arrPath) {
+  let node = state.items;
+  let rule = "number";
+  for (let i = 0; i < arrPath.length; i++) {
+    const step = arrPath[i];
+    if (step === "items") {
+      node = node.items;
+      continue;
+    }
+    if (step === "args") {
+      const argIndex = arrPath[++i];
+      rule = FUNCTION_BY_NAME[node.name]?.args[argIndex]?.rule || "number";
+      node = node.args[argIndex];
+      continue;
+    }
+    node = node[step];
+  }
+  return rule;
+}
+
+function ruleDescription(rule) {
+  return {
+    number: "a number",
+    amount: "a numeric variable or number-returning function",
+    currency: "a currency literal or currency variable",
+    "decimal-points": "a non-negative integer literal",
+    "rate-type": "the fixed value BENCHMARK"
+  }[rule] || "a valid value";
+}
+
+function canUseItem(item, rule) {
+  if (item.kind === "op" || item.kind === "group") return rule === "number";
+  if (item.kind === "var") {
+    const type = variableById(item.id)?.type;
+    if (rule === "currency") return type === "currency";
+    if (rule === "number" || rule === "amount") return type === "number";
+    return false;
+  }
+  if (item.kind === "func") {
+    return (rule === "number" || rule === "amount") &&
+      FUNCTION_BY_NAME[item.name]?.returnType === "number";
+  }
+  if (item.kind === "lit") {
+    if (rule === "number") return isNumericLit(item.value);
+    if (rule === "currency") return item.value.trim().length > 0;
+    if (rule === "decimal-points") return /^\d+$/.test(item.value);
+    if (rule === "rate-type") return item.value === "BENCHMARK";
+  }
+  return false;
+}
+
+function canInsertAtPath(item, arrPath) {
+  const rule = expectedRuleForPath(arrPath);
+  return canUseItem(item, rule) && (rule === "number" || getArr(arrPath).length === 0);
+}
+
+function assertNodeRule(node, rule, label) {
+  const fail = () => {
+    throw new Error(`${label} must be ${ruleDescription(rule)}`);
+  };
+  if (rule === "number") {
+    if ("lit" in node && !isNumericLit(node.lit)) fail();
+    if ("var" in node && variableById(node.var)?.type !== "number") fail();
+    if ("op" in node) {
+      node.args.forEach((arg, i) => assertNodeRule(arg, "number", `${label} operand ${i + 1}`));
+      return;
+    }
+    if ("func" in node && FUNCTION_BY_NAME[node.func]?.returnType === "number") return;
+    if ("lit" in node || "var" in node) return;
+    fail();
+  }
+  if (rule === "amount") {
+    if ("var" in node && variableById(node.var)?.type === "number") return;
+    if ("func" in node && FUNCTION_BY_NAME[node.func]?.returnType === "number") return;
+    fail();
+  }
+  if (rule === "currency") {
+    if ("lit" in node && node.lit.trim().length > 0) return;
+    if ("var" in node && variableById(node.var)?.type === "currency") return;
+    fail();
+  }
+  if (rule === "decimal-points") {
+    if ("lit" in node && /^\d+$/.test(node.lit)) return;
+    fail();
+  }
+  if (rule === "rate-type") {
+    if ("lit" in node && node.lit === "BENCHMARK") return;
+    fail();
+  }
+  fail();
+}
+
 /* ---- Cursor helpers ---------------------------------------------- */
 
 function isCursorAt(arrPath, pos) {
@@ -991,6 +1242,7 @@ function moveCursor(arrPath, pos) {
  * For func/group, drill the cursor into the first child slot so the
  * user can keep building left-to-right without an extra click. */
 function insertAtCursor(item) {
+  if (!canInsertAtPath(item, state.cursor.arrPath)) return;
   const arr = getArr(state.cursor.arrPath);
   const at  = state.cursor.pos;
   arr.splice(at, 0, item);
@@ -1196,10 +1448,11 @@ function itemToText(item) {
 
 /* ---- Parser: items[] -> AST tree --------------------------------- */
 
-function parseItems(items) {
+function parseItems(items, expectedRule = "number", label = "Expression") {
   if (items.length === 0) throw new Error("Empty expression");
   const { node, pos } = parseExpr(items, 0);
   if (pos !== items.length) throw new Error("Unexpected trailing items");
+  assertNodeRule(node, expectedRule, label);
   return node;
 }
 
@@ -1242,12 +1495,18 @@ function parsePrimary(items, pos) {
     return { node: parseItems(t.items), pos: pos + 1 };
   }
   if (t.kind === "func") {
+    const func = FUNCTION_BY_NAME[t.name];
+    if (!func) throw new Error(`Unknown function: ${t.name}`);
+    if (t.args.length !== func.args.length) {
+      throw new Error(`${t.name} requires exactly ${func.args.length} arguments`);
+    }
     const argTrees = t.args.map((a, i) => {
       if (a.length === 0) {
         const lbl = FUNC_ARG_LABELS[t.name]?.[i] || `arg ${i + 1}`;
         throw new Error(`Empty ${t.name} arg: ${lbl}`);
       }
-      return parseItems(a);
+      const spec = func.args[i];
+      return parseItems(a, spec.rule, `${t.name} ${spec.label}`);
     });
     return { node: { func: t.name, args: argTrees }, pos: pos + 1 };
   }
@@ -1262,10 +1521,6 @@ function toJSON(node) {
   if ("op"  in node) return { [node.op]: node.args.map(toJSON) };
   if ("func" in node) {
     const vs = node.args.map(toJSON);
-    if (node.func === "convert") {
-      const [amount, scale, from, to] = vs;
-      return { convert: [amount, scale, "from", from, "to", to] };
-    }
     return { [node.func]: vs };
   }
   throw new Error("Bad node");
@@ -1379,6 +1634,7 @@ function renderPopover() {
   /* quick-strip highlight */
   $$(".quick").forEach(b => b.classList.remove("active"));
   const d = p.draft;
+  const rule = expectedRuleForPath(p.arrPath);
   if (d) {
     if (d.kind === "op") {
       $(`.quick[data-quick="op"][data-op="${d.op}"]`)?.classList.add("active");
@@ -1391,11 +1647,31 @@ function renderPopover() {
   $("#literal-input").value = (d && d.kind === "lit") ? d.value : "";
 
   /* footer state */
-  $("#ok-btn").disabled = d === null;
+  $("#ok-btn").disabled = d === null ||
+    !(p.editing ? canUseItem(d, rule) : canInsertAtPath(d, p.arrPath));
   $("#delete-btn").hidden = !p.editing;
+  $("#literal-input").placeholder =
+    rule === "number" ? "Enter a number" :
+    rule === "currency" ? "Enter a currency, e.g. USD" :
+    rule === "decimal-points" ? "Enter a non-negative integer" :
+    rule === "rate-type" ? "BENCHMARK" :
+    "Literal values are not allowed here";
+  $("#literal-input").disabled = rule === "amount";
+  $$(".quick").forEach(btn => {
+    const candidate = btn.dataset.quick === "op"
+      ? { kind: "op", op: btn.dataset.op }
+      : { kind: "group", items: [] };
+    btn.disabled = !canUseItem(candidate, rule);
+  });
 
   renderVarList();
   renderFuncList();
+  $('[data-goto="variables"]').disabled = !VARIABLES.some(vr =>
+    canUseItem({ kind: "var", id: vr.id }, rule)
+  );
+  $('[data-goto="functions"]').disabled = !FUNCTIONS.some(f =>
+    canUseItem({ kind: "func", name: f.name }, rule)
+  );
 }
 
 function renderVarList() {
@@ -1404,8 +1680,10 @@ function renderVarList() {
   const q = $("#var-search").value.toLowerCase();
   const d = state.popover.draft;
 
+  const rule = expectedRuleForPath(state.popover.arrPath);
   const filtered = VARIABLES.filter(vr =>
-    vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q)
+    canUseItem({ kind: "var", id: vr.id }, rule) &&
+    (vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q))
   );
 
   if (filtered.length === 0) {
@@ -1440,7 +1718,8 @@ function renderFuncList() {
   const list = $("#func-list");
   list.innerHTML = "";
   const d = state.popover.draft;
-  FUNCTIONS.forEach(f => {
+  const rule = expectedRuleForPath(state.popover.arrPath);
+  FUNCTIONS.filter(f => canUseItem({ kind: "func", name: f.name }, rule)).forEach(f => {
     const btn = document.createElement("button");
     btn.className = "picker-item";
     if (d && d.kind === "func" && d.name === f.name) btn.classList.add("active");
@@ -1480,7 +1759,11 @@ $("#literal-input").addEventListener("input", e => {
   } else {
     state.popover.draft = { kind: "lit", value: val };
   }
-  $("#ok-btn").disabled = state.popover.draft === null;
+  const rule = expectedRuleForPath(state.popover.arrPath);
+  $("#ok-btn").disabled = state.popover.draft === null ||
+    !(state.popover.editing
+      ? canUseItem(state.popover.draft, rule)
+      : canInsertAtPath(state.popover.draft, state.popover.arrPath));
   $$(".quick").forEach(b => b.classList.remove("active"));
 });
 
@@ -1501,6 +1784,10 @@ $("#var-search").addEventListener("input", renderVarList);
 $("#ok-btn").addEventListener("click", () => {
   const p = state.popover;
   if (!p.draft) return;
+  const rule = expectedRuleForPath(p.arrPath);
+  if (!(p.editing
+    ? canUseItem(p.draft, rule)
+    : canInsertAtPath(p.draft, p.arrPath))) return;
   const arr = getArr(p.arrPath);
 
   /* For freshly-picked funcs and groups, materialise their empty children. */
@@ -1557,7 +1844,8 @@ function renderVarDropdown() {
   list.innerHTML = "";
   const q = $("#tb-var-search").value.toLowerCase();
   const filtered = VARIABLES.filter(vr =>
-    vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q)
+    canInsertAtPath({ kind: "var", id: vr.id }, state.cursor.arrPath) &&
+    (vr.label.toLowerCase().includes(q) || vr.id.toLowerCase().includes(q))
   );
   if (filtered.length === 0) {
     const empty = document.createElement("div");
@@ -1584,7 +1872,9 @@ function renderVarDropdown() {
 function renderFuncDropdown() {
   const list = $("#tb-func-list");
   list.innerHTML = "";
-  FUNCTIONS.forEach(f => {
+  FUNCTIONS.filter(f =>
+    canInsertAtPath({ kind: "func", name: f.name }, state.cursor.arrPath)
+  ).forEach(f => {
     const btn = document.createElement("button");
     btn.className = "tb-dd-item";
     const nm = document.createElement("span");
@@ -1647,13 +1937,23 @@ $("#tb-func-panel").addEventListener("click", e => e.stopPropagation());
 function commitLiteral() {
   const val = $("#tb-lit-input").value.trim();
   if (!val) return;
-  insertAtCursor({ kind: "lit", value: val });
+  const input = $("#tb-lit-input");
+  const item = { kind: "lit", value: val };
+  const rule = expectedRuleForPath(state.cursor.arrPath);
+  if (!canInsertAtPath(item, state.cursor.arrPath)) {
+    input.setCustomValidity(`Expected ${ruleDescription(rule)}.`);
+    input.reportValidity();
+    return;
+  }
+  input.setCustomValidity("");
+  insertAtCursor(item);
   $("#tb-lit-input").value = "";
 }
 $("#tb-lit-add").addEventListener("click", commitLiteral);
 $("#tb-lit-input").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); commitLiteral(); }
 });
+$("#tb-lit-input").addEventListener("input", e => e.target.setCustomValidity(""));
 
 /* Close dropdowns on outside click / Escape */
 document.addEventListener("click", e => {
@@ -1801,45 +2101,226 @@ function renderSavedTable() {
     td.textContent = "No saved formulas yet. Build one above and click Save…";
     tr.appendChild(td);
     tbody.appendChild(tr);
+  } else {
+    state.saved.forEach(entry => {
+      const tr = document.createElement("tr");
+
+      const nameTd = document.createElement("td");
+      nameTd.className = "saved-name";
+      nameTd.textContent = entry.name;
+      tr.appendChild(nameTd);
+
+      const textTd = document.createElement("td");
+      textTd.className = "saved-text";
+      textTd.title = entry.text;
+      textTd.textContent = entry.text;
+      tr.appendChild(textTd);
+
+      const timeTd = document.createElement("td");
+      timeTd.className = "saved-time";
+      timeTd.title = new Date(entry.savedAt).toLocaleString();
+      timeTd.textContent = relativeTime(entry.savedAt);
+      tr.appendChild(timeTd);
+
+      const actTd = document.createElement("td");
+      actTd.className = "saved-actions";
+      const loadBtn = document.createElement("button");
+      loadBtn.textContent = "Load";
+      loadBtn.addEventListener("click", () => loadSavedFormula(entry.id));
+      actTd.appendChild(loadBtn);
+      const delBtn = document.createElement("button");
+      delBtn.className = "danger";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => deleteSavedFormula(entry.id));
+      actTd.appendChild(delBtn);
+      tr.appendChild(actTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* Keep the Use panel select in sync */
+  renderUseSelect();
+}
+
+/* =====================================================================
+ * Use panel — select a saved formula, override literals only
+ * ===================================================================== */
+
+/* useState holds the currently selected formula id and a flat map of
+   lit overrides keyed by a path string like "0.args.1.0" */
+const useState = {
+  id: null,
+  overrides: {}   /* pathKey -> string value */
+};
+
+function renderUseSelect() {
+  const sel = $("#use-formula-select");
+  /* preserve current selection */
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select a saved formula…</option>';
+  state.saved.forEach(entry => {
+    const o = document.createElement("option");
+    o.value = entry.id;
+    o.textContent = entry.name;
+    sel.appendChild(o);
+  });
+  /* restore, or reset if entry was deleted */
+  if (state.saved.find(e => e.id === cur)) {
+    sel.value = cur;
+  } else if (useState.id && !state.saved.find(e => e.id === useState.id)) {
+    useState.id = null;
+    useState.overrides = {};
+    renderUsePanel();
+  }
+}
+
+function renderUsePanel() {
+  const row = $("#use-pill-row");
+  const outputRow = $("#use-output-row");
+  row.innerHTML = "";
+
+  if (!useState.id) {
+    const hint = document.createElement("span");
+    hint.className = "use-empty";
+    hint.textContent = "Select a formula above to get started";
+    row.appendChild(hint);
+    outputRow.hidden = true;
     return;
   }
 
-  state.saved.forEach(entry => {
-    const tr = document.createElement("tr");
+  const entry = state.saved.find(e => e.id === useState.id);
+  if (!entry) {
+    useState.id = null;
+    renderUsePanel();
+    return;
+  }
 
-    const nameTd = document.createElement("td");
-    nameTd.className = "saved-name";
-    nameTd.textContent = entry.name;
-    tr.appendChild(nameTd);
+  /* Render read-only formula with editable lit inputs */
+  const wrap = renderUseItemsArray(entry.items, []);
+  while (wrap.firstChild) row.appendChild(wrap.firstChild);
 
-    const textTd = document.createElement("td");
-    textTd.className = "saved-text";
-    textTd.title = entry.text;
-    textTd.textContent = entry.text;
-    tr.appendChild(textTd);
+  /* Compute JSON with overrides */
+  outputRow.hidden = false;
+  renderUseOutput(entry.items);
+}
 
-    const timeTd = document.createElement("td");
-    timeTd.className = "saved-time";
-    timeTd.title = new Date(entry.savedAt).toLocaleString();
-    timeTd.textContent = relativeTime(entry.savedAt);
-    tr.appendChild(timeTd);
-
-    const actTd = document.createElement("td");
-    actTd.className = "saved-actions";
-    const loadBtn = document.createElement("button");
-    loadBtn.textContent = "Load";
-    loadBtn.addEventListener("click", () => loadSavedFormula(entry.id));
-    actTd.appendChild(loadBtn);
-    const delBtn = document.createElement("button");
-    delBtn.className = "danger";
-    delBtn.textContent = "Delete";
-    delBtn.addEventListener("click", () => deleteSavedFormula(entry.id));
-    actTd.appendChild(delBtn);
-    tr.appendChild(actTd);
-
-    tbody.appendChild(tr);
+/* Deep-clone items and apply literal overrides */
+function applyOverrides(items, pathPrefix) {
+  return items.map((item, i) => {
+    const key = pathPrefix ? pathPrefix + "." + i : String(i);
+    if (item.kind === "lit") {
+      const ov = useState.overrides[key];
+      return { kind: "lit", value: ov !== undefined ? ov : item.value };
+    }
+    if (item.kind === "group") {
+      return { kind: "group", items: applyOverrides(item.items, key + ".items") };
+    }
+    if (item.kind === "func") {
+      return {
+        kind: "func", name: item.name,
+        args: item.args.map((a, ai) =>
+          applyOverrides(a, key + ".args." + ai)
+        )
+      };
+    }
+    return item;
   });
 }
+
+function renderUseOutput(baseItems) {
+  const vEl  = $("#use-validation");
+  const jEl  = $("#use-output-json");
+  const patched = applyOverrides(baseItems, "");
+  try {
+    const ast  = parseItems(patched);
+    const json = toJSON(ast);
+    jEl.textContent = JSON.stringify({ formula: json }, null, 2);
+    vEl.textContent = "✓ Valid formula.";
+    vEl.className = "validation ok";
+  } catch (e) {
+    jEl.textContent = "// invalid";
+    vEl.textContent = "✗ " + e.message;
+    vEl.className = "validation err";
+  }
+}
+
+function renderUseItemsArray(items, pathPrefix) {
+  const wrap = document.createElement("span");
+  wrap.className = "items-wrap";
+  items.forEach((item, i) => {
+    const key = pathPrefix.length ? pathPrefix + "." + i : String(i);
+    wrap.appendChild(renderUseItem(item, key));
+  });
+  return wrap;
+}
+
+function renderUseItem(item, key) {
+  if (item.kind === "op") {
+    const s = document.createElement("span");
+    s.className = "pill-ro pill-ro-op";
+    s.textContent = OPS[item.op].symbol;
+    return s;
+  }
+  if (item.kind === "var") {
+    const s = document.createElement("span");
+    s.className = "pill-ro pill-ro-var";
+    s.textContent = item.label;
+    return s;
+  }
+  if (item.kind === "lit") {
+    /* Editable input */
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "lit-override";
+    const stored = useState.overrides[key];
+    input.value = stored !== undefined ? stored : item.value;
+    input.placeholder = item.value;
+    input.title = "Edit literal value";
+    input.addEventListener("input", () => {
+      useState.overrides[key] = input.value;
+      /* validate immediately */
+      const entry = state.saved.find(e => e.id === useState.id);
+      if (entry) renderUseOutput(entry.items);
+      /* highlight invalid */
+      input.classList.toggle("invalid", input.value.trim() === "");
+    });
+    return input;
+  }
+  if (item.kind === "group") {
+    const wrap = document.createElement("span");
+    wrap.className = "group-wrap";
+    wrap.style.cursor = "default";
+    wrap.appendChild(makeDeco("("));
+    wrap.appendChild(renderUseItemsArray(item.items, key + ".items"));
+    wrap.appendChild(makeDeco(")"));
+    return wrap;
+  }
+  if (item.kind === "func") {
+    const wrap = document.createElement("span");
+    wrap.className = "func-wrap";
+    wrap.style.cursor = "default";
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "pill-ro pill-ro-func";
+    nameSpan.textContent = item.name;
+    wrap.appendChild(nameSpan);
+    wrap.appendChild(makeDeco("("));
+    item.args.forEach((arg, ai) => {
+      if (ai > 0) wrap.appendChild(makeDeco(","));
+      wrap.appendChild(renderUseItemsArray(arg, key + ".args." + ai));
+    });
+    wrap.appendChild(makeDeco(")"));
+    return wrap;
+  }
+  return document.createTextNode("");
+}
+
+$("#use-formula-select").addEventListener("change", e => {
+  const id = e.target.value;
+  useState.id = id || null;
+  useState.overrides = {};
+  renderUsePanel();
+});
 
 /* Wire save modal */
 $("#save-btn").addEventListener("click", openSaveModal);
@@ -1855,14 +2336,52 @@ $("#save-scrim").addEventListener("click", e => {
 
 /* ---- Top level --------------------------------------------------- */
 
+function renderToolbarState() {
+  const rule = expectedRuleForPath(state.cursor.arrPath);
+  $$('[data-tb="op"]').forEach(btn => {
+    btn.disabled = !canInsertAtPath(
+      { kind: "op", op: btn.dataset.op },
+      state.cursor.arrPath
+    );
+  });
+  $('[data-tb="group"]').disabled = !canInsertAtPath(
+    { kind: "group", items: [] },
+    state.cursor.arrPath
+  );
+  $("#tb-var-btn").disabled = !VARIABLES.some(vr =>
+    canInsertAtPath({ kind: "var", id: vr.id }, state.cursor.arrPath)
+  );
+  $("#tb-func-btn").disabled = !FUNCTIONS.some(f =>
+    canInsertAtPath({ kind: "func", name: f.name }, state.cursor.arrPath)
+  );
+
+  const literalAllowed = canInsertAtPath(
+    { kind: "lit", value: rule === "rate-type" ? "BENCHMARK" : "1" },
+    state.cursor.arrPath
+  );
+  $("#tb-lit-input").disabled = !literalAllowed;
+  $("#tb-lit-add").disabled = !literalAllowed;
+  $("#tb-lit-input").placeholder =
+    rule === "number" ? "number" :
+    rule === "currency" ? "currency code" :
+    rule === "decimal-points" ? "whole number" :
+    rule === "rate-type" ? "BENCHMARK" :
+    "not allowed";
+  if (rule === "rate-type" && $("#tb-lit-input").value === "") {
+    $("#tb-lit-input").value = "BENCHMARK";
+  }
+}
+
 function renderAll() {
   renderPillRow();
   renderTextPreview();
   renderOutput();
+  renderToolbarState();
 }
 
 renderAll();
 renderSavedTable();
+renderUsePanel();
 
 /* Saved JSON collapse toggle (persisted). Defaults to collapsed. */
 const JSON_COLLAPSED_KEY = "calc_builder.json_collapsed";
